@@ -1,14 +1,11 @@
-
 # coding: utf-8
 
-# ## Match Locations in "Landkreis" Fraustadt to Meyers Gazetter entries
+# Match Locations in "Landkreis" Fraustadt to Meyers Gazetter entries
 # Fraustadt has the `placeID = "10505026"` in the Gazetter.
-# 
+
 # Note: This test script builds on the scraped and parsed Meyers Gazetter entry data in the `ordiniertenbuch_continued.ipynb`
 
-# In[3]:
-
-
+# import libraries
 import os
 import pandas as pd
 from pandas.io.json import json_normalize
@@ -16,10 +13,6 @@ import json
 import numpy as np
 from tabulate import tabulate
 import re
-
-
-# In[1]:
-
 
 def merge_STATA(master, using, how='outer', on=None, left_on=None, right_on=None, indicator=True,
                 suffixes=('_master','_using'), drop=None, keep=None, drop_merge=False):
@@ -89,32 +82,30 @@ def merge_STATA(master, using, how='outer', on=None, left_on=None, right_on=None
 
     return merge
 
+# set working directory path as location of data
+wdir = '/Users/nicolaschapman/Documents/PrussianStringMatching/Data'
 
-# In[2]:
-
-
-# set working directory path
-wdir = '/Users/david/Dropbox/WittenbergerOrdiniertenbuch/'
 # load in json file of (combinded) Gazetter entries
+# commented out as saving of df means it need only run once
+"""
 file_path = os.path.join(wdir, 'Matching', 'json_merge.json')
 with open(file_path, 'r', encoding="utf8") as json_file:  
     data = json.load(json_file)
     df = json_normalize(data)
     print(f'The number of entries in Meyer Gazetter is: {df.shape[0]}')
 
+# save df to file so that we do not need to load json file again.
+df.to_pickle(wdir+"/df_pickle")
+"""
+
+# load saved data frame
+df = pd.read_pickle(wdir+"/df_pickle")
+print(f'The number of entries in Meyer Gazetter is: {df.shape[0]}')
 
 # First check if `Fraustadt` was indeed successfully scraped
-
-# In[4]:
-
-
 df[df['id']=='10505026']
 
-
 # First, let's see how many cities have Fraustadt in any of the columns (drop duplicates created by this technique). 
-
-# In[25]:
-
 
 # next check which rows have Fraustadt in any of the "abbreviation columns"
 df_fraustadt = df[(df.values=="Fraustadt")|(df.values=="Lissa")] 
