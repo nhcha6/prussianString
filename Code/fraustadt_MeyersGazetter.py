@@ -318,7 +318,7 @@ print(f'Number of locations in master file equals {df_master.shape[0]}')
 
 #  1.) 
 columns = list(df_master.columns)
-df_fraustadt_latlong['merge_round'] = 1
+df_fraustadt_latlong = df_fraustadt_latlong.assign(merge_round = 1)
 df_join = merge_STATA(df_master, df_fraustadt_latlong, how='left', left_on=['alt_name', 'class'], right_on=['merge_name', 'class_gazetter'])
 # set aside merged locations
 df_merged1 = df_join[df_join['_merge']=='both']
@@ -327,7 +327,7 @@ df_nomatch = df_join[df_join['_merge']=='left_only']
 df_nomatch = df_nomatch[columns]
 
 # 2.)
-df_fraustadt_latlong['merge_round'] = 2
+df_fraustadt_latlong = df_fraustadt_latlong.assign(merge_round = 2)
 df_join = merge_STATA(df_nomatch, df_fraustadt_latlong, how='left', left_on=['name', 'class'], right_on=['merge_name', 'class_gazetter'])
 # set aside merged locations
 df_merged2 = df_join[df_join['_merge']=='both']
@@ -337,7 +337,7 @@ df_nomatch = df_nomatch[columns]
 
 
 # 3.)
-df_fraustadt_latlong['merge_round'] = 3
+df_fraustadt_latlong = df_fraustadt_latlong.assign(merge_round = 3)
 df_join = merge_STATA(df_nomatch, df_fraustadt_latlong, how='left', left_on='alt_name', right_on='merge_name')
 # set aside merged locations
 df_merged3 = df_join[df_join['_merge']=='both']
@@ -346,7 +346,7 @@ df_nomatch = df_join[df_join['_merge']=='left_only']
 df_nomatch = df_nomatch[columns]
 
 # 4.)
-df_fraustadt_latlong['merge_round'] = 4
+df_fraustadt_latlong = df_fraustadt_latlong.assign(merge_round = 4)
 df_join = merge_STATA(df_nomatch, df_fraustadt_latlong, how='left', left_on='name', right_on='merge_name')
 # set aside merged locations
 df_merged4 = df_join[df_join['_merge']=='both']
@@ -356,7 +356,7 @@ df_nomatch = df_nomatch[columns]
 
 # Repeat for gazetter entries with null lat-long just for clarity of a match
 #  1.)
-df_fraustadt_null['merge_round'] = 1
+df_fraustadt_null = df_fraustadt_null.assign(merge_round = 1)
 columns = list(df_master.columns)
 df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on=['alt_name', 'class'], right_on=['merge_name', 'class_gazetter'])
 # set aside merged locations
@@ -366,7 +366,7 @@ df_nomatch = df_join[df_join['_merge']=='left_only']
 df_nomatch = df_nomatch[columns]
 
 # 2.)
-df_fraustadt_null['merge_round'] = 2
+df_fraustadt_null = df_fraustadt_null.assign(merge_round = 2)
 df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on=['name', 'class'], right_on=['merge_name', 'class_gazetter'])
 # set aside merged locations
 df_merged6 = df_join[df_join['_merge']=='both']
@@ -375,7 +375,7 @@ df_nomatch = df_join[df_join['_merge']=='left_only']
 df_nomatch = df_nomatch[columns]
 
 # 3.)
-df_fraustadt_null['merge_round'] = 3
+df_fraustadt_null = df_fraustadt_null.assign(merge_round = 3)
 df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on='alt_name', right_on='merge_name')
 # set aside merged locations
 df_merged7 = df_join[df_join['_merge']=='both']
@@ -384,7 +384,7 @@ df_nomatch = df_join[df_join['_merge']=='left_only']
 df_nomatch = df_nomatch[columns]
 
 # 4.)
-df_fraustadt_null['merge_round'] = 4
+df_fraustadt_null = df_fraustadt_null.assign(merge_round = 4)
 df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on='name', right_on='merge_name')
 # concat all dataFrames Dataframes 
 df_output = pd.concat([df_merged1, df_merged2, df_merged3, df_merged4, df_merged5, df_merged6, df_merged7, df_join], ignore_index=True)
@@ -413,8 +413,9 @@ df_remainder = df_fraustadt[df_fraustadt['id'].isin(diff)]
 df_remainder.to_excel(os.path.join(wdir, 'PrussianCensus1871/Fraustadt', 'Gazetter_Fraustadt_Lissa_Remainder.xlsx'), index=False)
 
 # extract unmatched names from census data:
-unmatched_name_census = df_join[df_join['_merge']=='left_only']
-unmatched_name_census = unmatched_name_census["name"]
+unmatched_census_df = df_join[df_join['_merge']=='left_only']
+unmatched_census_df = unmatched_census_df[columns]
+unmatched_name_census = unmatched_census_df["name"]
 
 # extract unmatched entries in gazetter data:
 unmatched_name_gazetter = df_remainder['merge_name']
@@ -423,7 +424,19 @@ unmatched_name_gazetter = df_remainder['merge_name']
 levenshtein_matches = lev_array(unmatched_name_gazetter, unmatched_name_census)
 print(levenshtein_matches)
 
+unmatched_census_df = unmatched_census_df.assign(lev_match = unmatched_census_df['name'])
+for match in levenshtein_matches:
+    unmatched_census_df.loc[unmatched_census_df['lev_match']==match[0], 'lev_match'] = match[1]
+
+print(unmatched_census_df[['lev_match', 'name']].head())
+
+lev_merge_df = merge_STATA(unmatched_census_df, df_remainder, how='left', left_on='lev_match', right_on='merge_name')
+lev_merge_df.drop(columns=["_merge"], inplace=True)
+lev_merge_df.drop(columns=["lev_match"], inplace=True)
+lev_merge_df.sort_values(by="loc_id", inplace=True)
+lev_merge_df.to_excel(os.path.join(wdir, 'PrussianCensus1871/Fraustadt', 'lev_match_merge.xlsx'), index=False)
 
 
 
 
+df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on='alt_name', right_on='merge_name')
