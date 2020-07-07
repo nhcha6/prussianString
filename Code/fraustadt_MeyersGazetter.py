@@ -165,12 +165,18 @@ print(f'The number of entries in Meyer Gazetter is: {df.shape[0]}')
 # two methods for extraction are seen, one that uses only the Kr column for the desired country and one that searches
 # for any exact reference to the county in any column
 # df_fraustadt = df[(df.values=="Fraustadt")|(df.values=="Lissa")]
-df_fraustadt = df[df['Kr'].str.startswith("Fraustadt",na=False)|df['Kr'].str.startswith("Lissa",na=False)]
+df_fraustadt = df[df['Kr'].str.startswith("Fraustadt",na=False)|df['Kr'].str.startswith("Lissa",na=False)|df['AG'].str.startswith("Fraustadt",na=False)|df['AG'].str.startswith("Lissa",na=False)]
+#df_fraustadt = pd.concat([df_fraustadt, ], ignore_index=True)
+
 print(df_fraustadt[['id', 'lat', 'lng', 'Kr']].head())
 
 
 # !! To-Do: Improve "Landkreis" Selection
-# Find a better way to select the correct "Landkreis". For instance, we want to account for cases as [Storchnest](https://www.meyersgaz.org/place/20888081) for which the `Kr` and `AG` is `Lissa B. Posen` and not `Lissa`. Need to work with substrings for value selection!
+# Find a better way to select the correct "Landkreis". For instance, we want to account for cases as [
+# Storchnest](https://www.meyersgaz.org/place/20888081) for which the `Kr` and `AG` is `Lissa B. Posen` and not
+# `Lissa`. Need to work with substrings for value selection!
+# Gazetter entries are added to df_fraustadt if the first word of the 'Kr' column is Fraustadt or Lissa. Added 8 new
+# matches
 
 # duplicated columns: keep only first
 df_fraustadt = df_fraustadt.groupby(['id']).first().reset_index()
@@ -198,8 +204,9 @@ dictionary_types  = {"HptSt.": "stadt",     # Hauptstadt
 
 
 # Next we need to create a column that entails the "translated" type.
-# Note: I rely on the follwing order `stadt > landgemeinde > gutsbezirk` for classification. For instance, if we have a location that has the types `G.` and `D.`, I will attribute the type `landgemeinde` to the location. Also note that `stadt > landgemeinde > gutsbezirk` is the reverse alpahbetical ordering!
-# !! maybe make multiple entries for each class instead of relying on a heirarchy.
+# Note: I rely on the follwing order `stadt > landgemeinde > gutsbezirk` for classification. For instance, if we have
+# a location that has the types `G.` and `D.`, I will attribute the type `landgemeinde` to the location. Also note that
+# `stadt > landgemeinde > gutsbezirk` is the reverse alpahbetical ordering!
 def check_type(string, dictionary = dictionary_types):
     """
     This is a helper that takes the type dictionary and returns
@@ -312,9 +319,7 @@ print(f'Number of locations in master file equals {df_master.shape[0]}')
 # 1. merge on the "more restrivtive" `alt_name` that takes into considerations suffixes such as "Nieder" and the `class` label 
 # 2. "non-matched" locations will be considered in a second merge based on the location `name` which is the location name without any suffixes and the `class` label
 # 3. "non-matched" locations will be considered in a third merge based on "more restrivtive" `alt_name` **but not** on `class` label 
-# 4. "non-matched" locations will be considered in a fourth merge based on `name` **but not** on `class` label 
-
-# !! add flag which denotes the sweep that the match was made.
+# 4. "non-matched" locations will be considered in a fourth merge based on `name` **but not** on `class` label
 
 #  1.) 
 columns = list(df_master.columns)
@@ -395,8 +400,9 @@ print(f'{df_output[df_output["_merge"]=="both"].shape[0]} out of {df_output.shap
 print(f'''\n{df_output[df_output["_merge"]=="left_only"].shape[0]} out of {df_master.shape[0]} locations were not matched\n{(df_master.shape[0]-df_output[df_output["_merge"]=="left_only"].shape[0])/df_master.shape[0]*100:.2f}% of locations have a match''')
 
 
-# !! To-Do: Eliminate Duplicates
-# We can try to **eliminate duplicates** by keeping the Meyer's Gazetter entry with `[lat,lng] != {0,0}`.  
+# !! To-Do: Eliminate Duplicates: duplicates currently only occur when two matches are found on the same round of
+# a merge. Gazetter entries without location data are only considered for the municipalities in the census that do not
+# find a match that has location data.
 
 # write file to disk
 df_output.drop(columns=["_merge"], inplace=True)
@@ -435,8 +441,5 @@ lev_merge_df.drop(columns=["_merge"], inplace=True)
 lev_merge_df.drop(columns=["lev_match"], inplace=True)
 lev_merge_df.sort_values(by="loc_id", inplace=True)
 lev_merge_df.to_excel(os.path.join(wdir, 'PrussianCensus1871/Fraustadt', 'lev_match_merge.xlsx'), index=False)
-
-
-
 
 df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on='alt_name', right_on='merge_name')
