@@ -19,6 +19,8 @@ import re
 # set working directory path as location of data
 wdir = '/Users/nicolaschapman/Documents/PrussianStringMatching/Data/'
 
+"""---------------------------------- DECLARE FUNCTIONS ----------------------------------"""
+
 def merge_STATA(master, using, how='outer', on=None, left_on=None, right_on=None, indicator=True,
                 suffixes=('_master','_using'), drop=None, keep=None, drop_merge=False):
     """
@@ -88,7 +90,54 @@ def merge_STATA(master, using, how='outer', on=None, left_on=None, right_on=None
     return merge
 
 
-""" ----------------------------------- LOAD GAZETTE DATA AND FILTER FOR -----------------------------------"""
+def levenshtein(seq1, seq2):
+    """returns the minimum number of changes (replacement, insertion, deletion) required to convert between two stings.
+    code taken from: https://stackabuse.com/levenshtein-distance-and-text-similarity-in-python/#:~:text=The%20Levenshtein%20Distance,-This%20method%20was&text=The%20distance%20value%20describes%20the,strings%20with%20an%20unequal%20length."""
+    size_x = len(seq1) + 1
+    size_y = len(seq2) + 1
+    matrix = np.zeros ((size_x, size_y))
+    for x in range(size_x):
+        matrix [x, 0] = x
+    for y in range(size_y):
+        matrix [0, y] = y
+
+    for x in range(1, size_x):
+        for y in range(1, size_y):
+            if seq1[x-1] == seq2[y-1]:
+                matrix [x,y] = min(
+                    matrix[x-1, y] + 1,
+                    matrix[x-1, y-1],
+                    matrix[x, y-1] + 1
+                )
+            else:
+                matrix [x,y] = min(
+                    matrix[x-1,y] + 1,
+                    matrix[x-1,y-1] + 1,
+                    matrix[x,y-1] + 1
+                )
+    #print (matrix)
+    return (matrix[size_x - 1, size_y - 1])
+
+def lev_array(unmatched_gazetter_name,unmatched_census_name):
+    """
+    algorithm which calculates the levenshtein distance for all unmatches census names and gazetter names beginning with
+    the same letter. If the ratio of the levenshtein distance to the length of the census_name is less than the a
+    certain value (0.3 at the moment) the pair is added to an output array.
+    output is list of lists: [[census_name, closest gazzeter_name, levenshtein ratio]]
+    """
+    levenshtein_array = []
+    for census_name in unmatched_name_census:
+        print(census_name)
+        for gazetter_name in unmatched_name_gazetter:
+            if gazetter_name[0]!=census_name[0]:
+                continue
+            ldist = levenshtein(gazetter_name,census_name)
+            if ldist/len(census_name)<0.3:
+                entry = [census_name, gazetter_name, ldist/len(census_name)]
+                levenshtein_array.append(entry)
+    return levenshtein_array
+
+""" ----------------------------------- LOAD GAZETTE DATA AND FILTER FOR DESIRED COUNTY -----------------------------------"""
 
 # load in json file of (combinded) Gazetter entries
 # commented out as saving of df means it need only run once
@@ -114,7 +163,7 @@ print(f'The number of entries in Meyer Gazetter is: {df.shape[0]}')
 # next check which rows have Fraustadt in any of the "abbreviation columns"
 # search for lissa too, because fraustadt was split to Lissa and Frastadt after the census but before the Meyers
 # Gazetter data was compiled.
-# ** add regular expression and see if that improves the recognition.
+# !! add regular expression and see if that improves the recognition.
 df_fraustadt = df[(df.values=="Fraustadt")|(df.values=="Lissa")]
 
 # # To-Do: Improve "Landkreis" Selection
@@ -147,7 +196,7 @@ dictionary_types  = {"HptSt.": "stadt",     # Hauptstadt
 
 # Next we need to create a column that entails the "translated" type.
 # Note: I rely on the follwing order `stadt > landgemeinde > gutsbezirk` for classification. For instance, if we have a location that has the types `G.` and `D.`, I will attribute the type `landgemeinde` to the location. Also note that `stadt > landgemeinde > gutsbezirk` is the reverse alpahbetical ordering!
-# ** maybe make multiple entries for each class instead of relying on a heirarchy.
+# !! maybe make multiple entries for each class instead of relying on a heirarchy.
 def check_type(string, dictionary = dictionary_types):
     """
     This is a helper that takes the type dictionary and returns
@@ -199,7 +248,7 @@ print(df_fraustadt[['id', 'name_gazetter', 'lat', 'lng','Type', 'merge_name', 'c
 """ ----------------------------LOAD CLEANED CENSUS DATA AND APPLY STRING CLEANING -----------------------------------"""
 
 # Load Posen-Fraustadt-kreiskey-134.xlsx` file we want to match with Gazetter entries. Clean file before merge!
-# ** To-Do: Improve string split Pattern
+# !! To-Do: Improve string split Pattern
 # Improve on split pattern for locations with appendix to accomodate "all" cases:  
 # `pattern = \sa\/|\sunt\s|\sa\s|\sunterm\s|\si\/|\si\s|\sb\s|\sin\s|\sbei\s|\sam\s|\san\s`
 
@@ -258,7 +307,7 @@ print(f'Number of locations in master file equals {df_master.shape[0]}')
 # 3. "non-matched" locations will be considered in a third merge based on "more restrivtive" `alt_name` **but not** on `class` label 
 # 4. "non-matched" locations will be considered in a fourth merge based on `name` **but not** on `class` label 
 
-# ** add flag which denotes the sweep that the match was made.
+# !! add flag which denotes the sweep that the match was made.
 
 #  1.) 
 columns = list(df_master.columns)
@@ -292,13 +341,12 @@ df_join = merge_STATA(df_nomatch, df_fraustadt, how='left', left_on='name', righ
 df_output = pd.concat([df_merged1, df_merged2, df_merged3, df_join], ignore_index=True)
 print(f'{df_output[df_output["_merge"]=="both"].shape[0]} out of {df_output.shape[0]}')
 
-
 # How well did we do?  
 # Note: We now do not consider duplicates but compare to the original excel-file entries
 print(f'''\n{df_output[df_output["_merge"]=="left_only"].shape[0]} out of {df_master.shape[0]} locations were not matched\n{(df_master.shape[0]-df_output[df_output["_merge"]=="left_only"].shape[0])/df_master.shape[0]*100:.2f}% of locations have a match''')
 
 
-# ** To-Do: Eliminate Duplicates
+# !! To-Do: Eliminate Duplicates
 # We can try to **eliminate duplicates** by keeping the Meyer's Gazetter entry with `[lat,lng] != {0,0}`.  
 
 # write file to disk
@@ -315,6 +363,16 @@ diff = id_gazetter - id_merge
 df_remainder = df_fraustadt[df_fraustadt['id'].isin(diff)]
 df_remainder.to_excel(os.path.join(wdir, 'PrussianCensus1871/Fraustadt', 'Gazetter_Fraustadt_Lissa_Remainder.xlsx'), index=False)
 
+# extract unmatched names from census data:
+unmatched_name_census = df_join[df_join['_merge']=='left_only']
+unmatched_name_census = unmatched_name_census["name"]
+
+# extract unmatched entries in gazetter data:
+unmatched_name_gazetter = df_remainder['merge_name']
+
+# call levenshtein comparison function
+levenshtein_matches = lev_array(unmatched_name_gazetter, unmatched_name_census)
+print(levenshtein_matches)
 
 
 
