@@ -314,74 +314,74 @@ print(f'Number of locations in master file equals {df_master.shape[0]}')
 
 #  1.) 
 columns = list(df_master.columns)
+df_fraustadt_latlong['merge_round'] = 1
 df_join = merge_STATA(df_master, df_fraustadt_latlong, how='left', left_on=['alt_name', 'class'], right_on=['merge_name', 'class_gazetter'])
 # set aside merged locations
 df_merged1 = df_join[df_join['_merge']=='both']
-df_merged1["merge_round"] = 1
 # select locations without a match
 df_nomatch = df_join[df_join['_merge']=='left_only']
 df_nomatch = df_nomatch[columns]
 
 # 2.)
+df_fraustadt_latlong['merge_round'] = 2
 df_join = merge_STATA(df_nomatch, df_fraustadt_latlong, how='left', left_on=['name', 'class'], right_on=['merge_name', 'class_gazetter'])
 # set aside merged locations
 df_merged2 = df_join[df_join['_merge']=='both']
-df_merged2["merge_round"] = 2
 # select locations without a match
 df_nomatch = df_join[df_join['_merge']=='left_only']
 df_nomatch = df_nomatch[columns]
 
 
-# 3.) 
+# 3.)
+df_fraustadt_latlong['merge_round'] = 3
 df_join = merge_STATA(df_nomatch, df_fraustadt_latlong, how='left', left_on='alt_name', right_on='merge_name')
 # set aside merged locations
 df_merged3 = df_join[df_join['_merge']=='both']
-df_merged3["merge_round"] = 3
 # select locations without a match
 df_nomatch = df_join[df_join['_merge']=='left_only']
 df_nomatch = df_nomatch[columns]
 
-# 4.) 
+# 4.)
+df_fraustadt_latlong['merge_round'] = 4
 df_join = merge_STATA(df_nomatch, df_fraustadt_latlong, how='left', left_on='name', right_on='merge_name')
 # set aside merged locations
 df_merged4 = df_join[df_join['_merge']=='both']
-df_merged4["merge_round"] = 4
 # select locations without a match
 df_nomatch = df_join[df_join['_merge']=='left_only']
 df_nomatch = df_nomatch[columns]
 
 # Repeat for gazetter entries with null lat-long just for clarity of a match
 #  1.)
+df_fraustadt_null['merge_round'] = 1
 columns = list(df_master.columns)
 df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on=['alt_name', 'class'], right_on=['merge_name', 'class_gazetter'])
 # set aside merged locations
 df_merged5 = df_join[df_join['_merge']=='both']
-df_merged5["merge_round"] = 1
 # select locations without a match
 df_nomatch = df_join[df_join['_merge']=='left_only']
 df_nomatch = df_nomatch[columns]
 
 # 2.)
+df_fraustadt_null['merge_round'] = 2
 df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on=['name', 'class'], right_on=['merge_name', 'class_gazetter'])
 # set aside merged locations
 df_merged6 = df_join[df_join['_merge']=='both']
-df_merged6["merge_round"] = 2
 # select locations without a match
 df_nomatch = df_join[df_join['_merge']=='left_only']
 df_nomatch = df_nomatch[columns]
 
 # 3.)
+df_fraustadt_null['merge_round'] = 3
 df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on='alt_name', right_on='merge_name')
 # set aside merged locations
 df_merged7 = df_join[df_join['_merge']=='both']
-df_merged7["merge_round"] = 3
 # select locations without a match
 df_nomatch = df_join[df_join['_merge']=='left_only']
 df_nomatch = df_nomatch[columns]
 
 # 4.)
+df_fraustadt_null['merge_round'] = 4
 df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on='name', right_on='merge_name')
-df_join['merge_round'] = 4
 # concat all dataFrames Dataframes 
 df_output = pd.concat([df_merged1, df_merged2, df_merged3, df_merged4, df_merged5, df_merged6, df_merged7, df_join], ignore_index=True)
 print(f'{df_output[df_output["_merge"]=="both"].shape[0]} out of {df_output.shape[0]}')
