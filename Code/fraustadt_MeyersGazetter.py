@@ -5,6 +5,8 @@
 
 # Note: This test script builds on the scraped and parsed Meyers Gazetter entry data in the `ordiniertenbuch_continued.ipynb`
 
+"""------------------------------------- INITIALISATION CODE -----------------------------------"""
+
 # import libraries
 import os
 import pandas as pd
@@ -13,6 +15,9 @@ import json
 import numpy as np
 from tabulate import tabulate
 import re
+
+# set working directory path as location of data
+wdir = '/Users/nicolaschapman/Documents/PrussianStringMatching/Data/'
 
 def merge_STATA(master, using, how='outer', on=None, left_on=None, right_on=None, indicator=True,
                 suffixes=('_master','_using'), drop=None, keep=None, drop_merge=False):
@@ -82,8 +87,8 @@ def merge_STATA(master, using, how='outer', on=None, left_on=None, right_on=None
 
     return merge
 
-# set working directory path as location of data
-wdir = '/Users/nicolaschapman/Documents/PrussianStringMatching/Data'
+
+""" ----------------------------------- LOAD GAZETTE DATA AND FILTER FOR -----------------------------------"""
 
 # load in json file of (combinded) Gazetter entries
 # commented out as saving of df means it need only run once
@@ -95,27 +100,25 @@ with open(file_path, 'r', encoding="utf8") as json_file:
     print(f'The number of entries in Meyer Gazetter is: {df.shape[0]}')
 
 # save df to file so that we do not need to load json file again.
-df.to_pickle(wdir+"/df_pickle")
+df.to_pickle(wdir+"df_pickle")
 """
 
 # load saved data frame
-df = pd.read_pickle(wdir+"/df_pickle")
+df = pd.read_pickle(wdir+"df_pickle")
 print(f'The number of entries in Meyer Gazetter is: {df.shape[0]}')
 
 # First check if `Fraustadt` was indeed successfully scraped
-df[df['id']=='10505026']
+# print(df[df['id']=='10505026'])
 
-# First, let's see how many cities have Fraustadt in any of the columns (drop duplicates created by this technique). 
-
+# First, let's see how many cities have Fraustadt in any of the columns (drop duplicates created by this technique).
 # next check which rows have Fraustadt in any of the "abbreviation columns"
-df_fraustadt = df[(df.values=="Fraustadt")|(df.values=="Lissa")] 
-
+# search for lissa too, because fraustadt was split to Lissa and Frastadt after the census but before the Meyers
+# Gazetter data was compiled.
+# ** add regular expression and see if that improves the recognition.
+df_fraustadt = df[(df.values=="Fraustadt")|(df.values=="Lissa")]
 
 # # To-Do: Improve "Landkreis" Selection
 # Find a better way to select the correct "Landkreis". For instance, we want to account for cases as [Storchnest](https://www.meyersgaz.org/place/20888081) for which the `Kr` and `AG` is `Lissa B. Posen` and not `Lissa`. Need to work with substrings for value selection!
-
-# In[26]:
-
 
 # duplicated columns: keep only first
 df_fraustadt = df_fraustadt.groupby(['id']).first().reset_index()
@@ -129,11 +132,7 @@ df_fraustadt.rename(columns = {'name': 'name_gazetter'}, inplace=True)
 df_fraustadt[df_fraustadt['id']=='10505026']
 
 
-# Let's define a dictionary to match the [Meyers gazetter types](https://www.familysearch.org/wiki/en/Abbreviation_Table_for_Meyers_Orts_und_Verkehrs_Lexikon_Des_Deutschen_Reichs) to the three classes `stadt, landgemeinde, gutsbezirk`. 
-
-# In[27]:
-
-
+# Let's define a dictionary to match the [Meyers gazetter types](https://www.familysearch.org/wiki/en/Abbreviation_Table_for_Meyers_Orts_und_Verkehrs_Lexikon_Des_Deutschen_Reichs) to the three classes `stadt, landgemeinde, gutsbezirk`.
 dictionary_types  = {"HptSt.": "stadt",     # Hauptstadt
                      "KrSt.": "stadt",      # Kreisstadt
                      "St.": "stadt",        # Stadt
@@ -146,13 +145,9 @@ dictionary_types  = {"HptSt.": "stadt",     # Hauptstadt
                     }
 
 
-# Next we need to create a column that entails the "translated" type.  
-# 
+# Next we need to create a column that entails the "translated" type.
 # Note: I rely on the follwing order `stadt > landgemeinde > gutsbezirk` for classification. For instance, if we have a location that has the types `G.` and `D.`, I will attribute the type `landgemeinde` to the location. Also note that `stadt > landgemeinde > gutsbezirk` is the reverse alpahbetical ordering!
-
-# In[28]:
-
-
+# ** maybe make multiple entries for each class instead of relying on a heirarchy.
 def check_type(string, dictionary = dictionary_types):
     """
     This is a helper that takes the type dictionary and returns
@@ -175,11 +170,8 @@ def check_type(string, dictionary = dictionary_types):
             classes.append(dictionary[match])
         return sorted(classes, reverse=True)[0]
              
-
-
-# In[29]:
-
-
+# test the check_type function
+"""
 testset = ["D. u. Rg.", 
            "GutsB.", 
            "D. u. Dom. (aus: Mittel, Nieder u. Ober D.)", 
@@ -188,38 +180,31 @@ testset = ["D. u. Rg.",
            "D. u. GutsB."   # to check if ordering works
           ]
 
-
-# In[30]:
-
-
 for string in testset:
     print("\n" + string)
     print(check_type(string))
+"""
 
-
-# Now that we are all set let's creat the column `class`. And inspect if it worked
-
-# In[31]:
-
-
+# Now that we are all set let's create the column `class`. And inspect if it worked
 # make sure column Type has only string values
 df_fraustadt['Type'] = df_fraustadt['Type'].astype(str)
 # make apply check_type() function
 df_fraustadt['class_gazetter'] = df_fraustadt['Type'].apply(check_type)
 # check results
-df_fraustadt[['id', 'name_gazetter', 'lat', 'lng','Type', 'merge_name', 'class_gazetter']].head()
+print("checking the class_gazette column has been successfully and accurately added")
+print(df_fraustadt[['id', 'name_gazetter', 'lat', 'lng','Type', 'merge_name', 'class_gazetter']].head())
 
 
-# Load in `Posen-Fraustadt-kreiskey-134.xlsx` file we want to match with Gazetter entries. Clean file before merge!
-# 
-# # To-Do: Improve string split Pattern
+
+""" ----------------------------LOAD CLEANED CENSUS DATA AND APPLY STRING CLEANING -----------------------------------"""
+
+# Load Posen-Fraustadt-kreiskey-134.xlsx` file we want to match with Gazetter entries. Clean file before merge!
+# ** To-Do: Improve string split Pattern
 # Improve on split pattern for locations with appendix to accomodate "all" cases:  
 # `pattern = \sa\/|\sunt\s|\sa\s|\sunterm\s|\si\/|\si\s|\sb\s|\sin\s|\sbei\s|\sam\s|\san\s`
 
-# In[11]:
-
-
-df_master = pd.read_excel(os.path.join(wdir, 'Fraustadt', 'Posen-Fraustadt-kreiskey-134.xlsx'))
+# upload cleaned data
+df_master = pd.read_excel(os.path.join(wdir, 'PrussianCensus1871/Fraustadt', 'Posen-Fraustadt-kreiskey-134.xlsx'))
 # rename columns
 df_master.rename(columns= {"posen": "province",
                            "134": "province_id",
@@ -229,7 +214,7 @@ df_master.rename(columns= {"posen": "province",
                            "Unnamed: 5": "loc_id",
                            "XIV. Kreis Fraustadt": "orig_name"
                           }, inplace=True)
-# drop rows with "a) Stadtgemeinden" and "b) Landgemeinden"
+# drop rows with "a) Stadtgemeinden" and "b) Landgemeinden" as these are headings and not data
 df_master = df_master[~df_master['orig_name'].isin(['a) Stadtgemeinden', 'b) Landgemeinden', "c) Gutsbezirke"])]
 # now we need to clean location names 
 df_master['name'] = df_master['orig_name']
@@ -260,33 +245,20 @@ for c in ['name', 'alt_name', 'suffix', 'appendix']:
 # concate 'suffix' and 'name'
 df_master.loc[df_master['suffix'].notnull(), 'alt_name'] = df_master.loc[df_master['suffix'].notnull(), ['suffix', 'name']].apply(lambda x: ' '.join(x), axis=1)
 print(f'Number of locations in master file equals {df_master.shape[0]}')
-
-
 # Check if all went to plan for the distribution of appendices and suffices
-
-# In[32]:
-
-
-df_master[df_master['appendix'].notnull()].head()
+#print(df_master[df_master['appendix'].notnull()].head())
+#print(df_master[df_master['suffix'].notnull()].head())
 
 
-# In[33]:
+"""----------------------------------- MERGE THE TWO DATA FRAMES -----------------------------------"""
 
-
-df_master[df_master['suffix'].notnull()].head()
-
-
-# ### Now let's try out the merege in a 4-step procedure: 
+# Now let's try out the merege in a 4-step procedure:
 # 1. merge on the "more restrivtive" `alt_name` that takes into considerations suffixes such as "Nieder" and the `class` label 
 # 2. "non-matched" locations will be considered in a second merge based on the location `name` which is the location name without any suffixes and the `class` label
 # 3. "non-matched" locations will be considered in a third merge based on "more restrivtive" `alt_name` **but not** on `class` label 
 # 4. "non-matched" locations will be considered in a fourth merge based on `name` **but not** on `class` label 
 
-# # Question: Should we do this in a loop? 
-# Kept it like this to make it "more" illustrative whats going on
-
-# In[45]:
-
+# ** add flag which denotes the sweep that the match was made.
 
 #  1.) 
 columns = list(df_master.columns)
@@ -323,39 +295,27 @@ print(f'{df_output[df_output["_merge"]=="both"].shape[0]} out of {df_output.shap
 
 # How well did we do?  
 # Note: We now do not consider duplicates but compare to the original excel-file entries
-
-# In[46]:
-
-
 print(f'''\n{df_output[df_output["_merge"]=="left_only"].shape[0]} out of {df_master.shape[0]} locations were not matched\n{(df_master.shape[0]-df_output[df_output["_merge"]=="left_only"].shape[0])/df_master.shape[0]*100:.2f}% of locations have a match''')
 
 
-# # To-Do: Eliminate Duplicates
+# ** To-Do: Eliminate Duplicates
 # We can try to **eliminate duplicates** by keeping the Meyer's Gazetter entry with `[lat,lng] != {0,0}`.  
-
-# In[18]:
-
 
 # write file to disk
 df_output.drop(columns=["_merge"], inplace=True)
 df_output.sort_values(by="loc_id", inplace=True)
-df_output.to_excel(os.path.join(wdir, 'Fraustadt', 'Posen-Fraustadt-kreiskey-134-merged.xlsx'), index=False)
+df_output.to_excel(os.path.join(wdir, 'PrussianCensus1871/Fraustadt', 'Posen-Fraustadt-kreiskey-134-merged.xlsx'), index=False)
 
 
-# ### Meyers Gazetter: Which locations were not matched?
+# Meyers Gazetter: Which locations were not matched?
 # Finally, we would like to know which Gazetter entries are not matched.
-
-# In[20]:
-
-
 id_gazetter = set(df_fraustadt['id'].values)
 id_merge = set(df_output['id'].values)
 diff = id_gazetter - id_merge
 df_remainder = df_fraustadt[df_fraustadt['id'].isin(diff)]
-df_remainder.to_excel(os.path.join(wdir, 'Fraustadt', 'Gazetter_Fraustadt_Lissa_Remainder.xlsx'), index=False)
+df_remainder.to_excel(os.path.join(wdir, 'PrussianCensus1871/Fraustadt', 'Gazetter_Fraustadt_Lissa_Remainder.xlsx'), index=False)
 
 
-# In[214]:
 
 
 
