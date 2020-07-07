@@ -362,7 +362,6 @@ df_nomatch = df_nomatch[columns]
 # Repeat for gazetter entries with null lat-long just for clarity of a match
 #  1.)
 df_fraustadt_null = df_fraustadt_null.assign(merge_round = 1)
-columns = list(df_master.columns)
 df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on=['alt_name', 'class'], right_on=['merge_name', 'class_gazetter'])
 # set aside merged locations
 df_merged5 = df_join[df_join['_merge']=='both']
@@ -409,6 +408,7 @@ df_output.drop(columns=["_merge"], inplace=True)
 df_output.sort_values(by="loc_id", inplace=True)
 df_output.to_excel(os.path.join(wdir, 'PrussianCensus1871/Fraustadt', 'Posen-Fraustadt-kreiskey-134-merged.xlsx'), index=False)
 
+"""---------------------------- ANALYSIS OF UNMATCHED ENTRIES - LEVENSHTEIN DISTANCE ---------------------------"""
 
 # Meyers Gazetter: Which locations were not matched?
 # Finally, we would like to know which Gazetter entries are not matched.
@@ -436,10 +436,54 @@ for match in levenshtein_matches:
 
 print(unmatched_census_df[['lev_match', 'name']].head())
 
-lev_merge_df = merge_STATA(unmatched_census_df, df_remainder, how='left', left_on='lev_match', right_on='merge_name')
+""" ------------------------------- CONDUCT MERGE ROUNDS BASED ON LEVENSTEIN DISTANCE ---------------------------- """
+
+#lev_merge_df = merge_STATA(unmatched_census_df, df_remainder, how='left', left_on='lev_match', right_on='merge_name')
+
+# round 5 considered to be levenshtein distance merge
+df_remainder = df_remainder.assign(merge_round = 5)
+# column data has been updated to inculde lev_match so redeclare it
+columns = list(unmatched_census_df.columns)
+
+# split df_remainder into entries with and without location data:
+df_remainder_latlong = df_fraustadt[df_fraustadt['lat']!=0]
+df_remainder_null = df_fraustadt[df_fraustadt['lat']==0]
+
+# follow the same iterative procedure as before, except using 'lev_match' instead of 'name' or 'alt_name'
+# first check gazetter entries with location data.
+#  1.) Merge if class and levenshtein distance match
+df_join = merge_STATA(unmatched_census_df, df_remainder_latlong, how='left', left_on=['lev_match', 'class'], right_on=['merge_name', 'class_gazetter'])
+# set aside merged locations
+df_lev_merge1 = df_join[df_join['_merge']=='both']
+# select locations without a match
+df_nomatch = df_join[df_join['_merge']=='left_only']
+df_nomatch = df_nomatch[columns]
+
+# 2.) Merge if levenshtein distance only matches
+df_join = merge_STATA(df_nomatch, df_remainder_latlong, how='left', left_on='lev_match', right_on='merge_name')
+# set aside merged locations
+df_lev_merge2 = df_join[df_join['_merge']=='both']
+# select locations without a match
+df_nomatch = df_join[df_join['_merge']=='left_only']
+df_nomatch = df_nomatch[columns]
+
+# check unmatched entries against non-location gazetter data
+#  1.) Merge if class and levenshtein distance match
+df_join = merge_STATA(df_nomatch, df_remainder_null, how='left', left_on=['lev_match', 'class'], right_on=['merge_name', 'class_gazetter'])
+# set aside merged locations
+df_lev_merge3 = df_join[df_join['_merge']=='both']
+# select locations without a match
+df_nomatch = df_join[df_join['_merge']=='left_only']
+df_nomatch = df_nomatch[columns]
+
+# 2.) Merge if levenshtein distance only matches
+df_join = merge_STATA(df_nomatch, df_remainder_null, how='left', left_on='lev_match', right_on='merge_name')
+
+# generate ouptut
+lev_merge_df = pd.concat([df_lev_merge1, df_lev_merge2, df_lev_merge3, df_join], ignore_index=True)
 lev_merge_df.drop(columns=["_merge"], inplace=True)
 lev_merge_df.drop(columns=["lev_match"], inplace=True)
 lev_merge_df.sort_values(by="loc_id", inplace=True)
-lev_merge_df.to_excel(os.path.join(wdir, 'PrussianCensus1871/Fraustadt', 'lev_match_merge.xlsx'), index=False)
 
-df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on='alt_name', right_on='merge_name')
+# write to csv
+lev_merge_df.to_excel(os.path.join(wdir, 'PrussianCensus1871/Fraustadt', 'Posen-Fraustadt-kreiskey-134-lev_match_merge.xlsx'), index=False)
