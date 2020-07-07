@@ -165,7 +165,7 @@ print(f'The number of entries in Meyer Gazetter is: {df.shape[0]}')
 # !! add regular expression and see if that improves the recognition.
 df_fraustadt = df[(df.values=="Fraustadt")|(df.values=="Lissa")]
 
-# # To-Do: Improve "Landkreis" Selection
+# !! To-Do: Improve "Landkreis" Selection
 # Find a better way to select the correct "Landkreis". For instance, we want to account for cases as [Storchnest](https://www.meyersgaz.org/place/20888081) for which the `Kr` and `AG` is `Lissa B. Posen` and not `Lissa`. Need to work with substrings for value selection!
 
 # duplicated columns: keep only first
@@ -317,6 +317,7 @@ columns = list(df_master.columns)
 df_join = merge_STATA(df_master, df_fraustadt_latlong, how='left', left_on=['alt_name', 'class'], right_on=['merge_name', 'class_gazetter'])
 # set aside merged locations
 df_merged1 = df_join[df_join['_merge']=='both']
+df_merged1["merge_round"] = 1
 # select locations without a match
 df_nomatch = df_join[df_join['_merge']=='left_only']
 df_nomatch = df_nomatch[columns]
@@ -325,6 +326,7 @@ df_nomatch = df_nomatch[columns]
 df_join = merge_STATA(df_nomatch, df_fraustadt_latlong, how='left', left_on=['name', 'class'], right_on=['merge_name', 'class_gazetter'])
 # set aside merged locations
 df_merged2 = df_join[df_join['_merge']=='both']
+df_merged2["merge_round"] = 2
 # select locations without a match
 df_nomatch = df_join[df_join['_merge']=='left_only']
 df_nomatch = df_nomatch[columns]
@@ -334,6 +336,7 @@ df_nomatch = df_nomatch[columns]
 df_join = merge_STATA(df_nomatch, df_fraustadt_latlong, how='left', left_on='alt_name', right_on='merge_name')
 # set aside merged locations
 df_merged3 = df_join[df_join['_merge']=='both']
+df_merged3["merge_round"] = 3
 # select locations without a match
 df_nomatch = df_join[df_join['_merge']=='left_only']
 df_nomatch = df_nomatch[columns]
@@ -342,6 +345,7 @@ df_nomatch = df_nomatch[columns]
 df_join = merge_STATA(df_nomatch, df_fraustadt_latlong, how='left', left_on='name', right_on='merge_name')
 # set aside merged locations
 df_merged4 = df_join[df_join['_merge']=='both']
+df_merged4["merge_round"] = 4
 # select locations without a match
 df_nomatch = df_join[df_join['_merge']=='left_only']
 df_nomatch = df_nomatch[columns]
@@ -352,6 +356,7 @@ columns = list(df_master.columns)
 df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on=['alt_name', 'class'], right_on=['merge_name', 'class_gazetter'])
 # set aside merged locations
 df_merged5 = df_join[df_join['_merge']=='both']
+df_merged5["merge_round"] = 1
 # select locations without a match
 df_nomatch = df_join[df_join['_merge']=='left_only']
 df_nomatch = df_nomatch[columns]
@@ -360,6 +365,7 @@ df_nomatch = df_nomatch[columns]
 df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on=['name', 'class'], right_on=['merge_name', 'class_gazetter'])
 # set aside merged locations
 df_merged6 = df_join[df_join['_merge']=='both']
+df_merged6["merge_round"] = 2
 # select locations without a match
 df_nomatch = df_join[df_join['_merge']=='left_only']
 df_nomatch = df_nomatch[columns]
@@ -368,12 +374,14 @@ df_nomatch = df_nomatch[columns]
 df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on='alt_name', right_on='merge_name')
 # set aside merged locations
 df_merged7 = df_join[df_join['_merge']=='both']
+df_merged7["merge_round"] = 3
 # select locations without a match
 df_nomatch = df_join[df_join['_merge']=='left_only']
 df_nomatch = df_nomatch[columns]
 
 # 4.)
 df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on='name', right_on='merge_name')
+df_join['merge_round'] = 4
 # concat all dataFrames Dataframes 
 df_output = pd.concat([df_merged1, df_merged2, df_merged3, df_merged4, df_merged5, df_merged6, df_merged7, df_join], ignore_index=True)
 print(f'{df_output[df_output["_merge"]=="both"].shape[0]} out of {df_output.shape[0]}')
