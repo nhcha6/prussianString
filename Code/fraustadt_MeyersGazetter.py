@@ -127,7 +127,6 @@ def lev_array(unmatched_gazetter_name,unmatched_census_name):
     """
     levenshtein_array = []
     for census_name in unmatched_name_census:
-        print(census_name)
         for gazetter_name in unmatched_name_gazetter:
             if gazetter_name[0]!=census_name[0]:
                 continue
@@ -243,6 +242,9 @@ df_fraustadt['class_gazetter'] = df_fraustadt['Type'].apply(check_type)
 print("checking the class_gazette column has been successfully and accurately added")
 print(df_fraustadt[['id', 'name_gazetter', 'lat', 'lng','Type', 'merge_name', 'class_gazetter']].head())
 
+# split df_fraustadt into lat/long == null and lat/long!=null
+df_fraustadt_latlong = df_fraustadt[df_fraustadt['lat']!=0]
+df_fraustadt_null = df_fraustadt[df_fraustadt['lat']==0]
 
 
 """ ----------------------------LOAD CLEANED CENSUS DATA AND APPLY STRING CLEANING -----------------------------------"""
@@ -301,7 +303,8 @@ print(f'Number of locations in master file equals {df_master.shape[0]}')
 
 """----------------------------------- MERGE THE TWO DATA FRAMES -----------------------------------"""
 
-# Now let's try out the merege in a 4-step procedure:
+# Now let's try out the merege in a 4-step procedure. This procedure is iterated through twice, once for gazetter entries
+# that have a valid lat-long, and one for entries that do not.
 # 1. merge on the "more restrivtive" `alt_name` that takes into considerations suffixes such as "Nieder" and the `class` label 
 # 2. "non-matched" locations will be considered in a second merge based on the location `name` which is the location name without any suffixes and the `class` label
 # 3. "non-matched" locations will be considered in a third merge based on "more restrivtive" `alt_name` **but not** on `class` label 
@@ -311,7 +314,7 @@ print(f'Number of locations in master file equals {df_master.shape[0]}')
 
 #  1.) 
 columns = list(df_master.columns)
-df_join = merge_STATA(df_master, df_fraustadt, how='left', left_on=['alt_name', 'class'], right_on=['merge_name', 'class_gazetter'])
+df_join = merge_STATA(df_master, df_fraustadt_latlong, how='left', left_on=['alt_name', 'class'], right_on=['merge_name', 'class_gazetter'])
 # set aside merged locations
 df_merged1 = df_join[df_join['_merge']=='both']
 # select locations without a match
@@ -319,7 +322,7 @@ df_nomatch = df_join[df_join['_merge']=='left_only']
 df_nomatch = df_nomatch[columns]
 
 # 2.)
-df_join = merge_STATA(df_nomatch, df_fraustadt, how='left', left_on=['name', 'class'], right_on=['merge_name', 'class_gazetter'])
+df_join = merge_STATA(df_nomatch, df_fraustadt_latlong, how='left', left_on=['name', 'class'], right_on=['merge_name', 'class_gazetter'])
 # set aside merged locations
 df_merged2 = df_join[df_join['_merge']=='both']
 # select locations without a match
@@ -328,7 +331,7 @@ df_nomatch = df_nomatch[columns]
 
 
 # 3.) 
-df_join = merge_STATA(df_nomatch, df_fraustadt, how='left', left_on='alt_name', right_on='merge_name')
+df_join = merge_STATA(df_nomatch, df_fraustadt_latlong, how='left', left_on='alt_name', right_on='merge_name')
 # set aside merged locations
 df_merged3 = df_join[df_join['_merge']=='both']
 # select locations without a match
@@ -336,9 +339,43 @@ df_nomatch = df_join[df_join['_merge']=='left_only']
 df_nomatch = df_nomatch[columns]
 
 # 4.) 
-df_join = merge_STATA(df_nomatch, df_fraustadt, how='left', left_on='name', right_on='merge_name')
+df_join = merge_STATA(df_nomatch, df_fraustadt_latlong, how='left', left_on='name', right_on='merge_name')
+# set aside merged locations
+df_merged4 = df_join[df_join['_merge']=='both']
+# select locations without a match
+df_nomatch = df_join[df_join['_merge']=='left_only']
+df_nomatch = df_nomatch[columns]
+
+# Repeat for gazetter entries with null lat-long just for clarity of a match
+#  1.)
+columns = list(df_master.columns)
+df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on=['alt_name', 'class'], right_on=['merge_name', 'class_gazetter'])
+# set aside merged locations
+df_merged5 = df_join[df_join['_merge']=='both']
+# select locations without a match
+df_nomatch = df_join[df_join['_merge']=='left_only']
+df_nomatch = df_nomatch[columns]
+
+# 2.)
+df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on=['name', 'class'], right_on=['merge_name', 'class_gazetter'])
+# set aside merged locations
+df_merged6 = df_join[df_join['_merge']=='both']
+# select locations without a match
+df_nomatch = df_join[df_join['_merge']=='left_only']
+df_nomatch = df_nomatch[columns]
+
+# 3.)
+df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on='alt_name', right_on='merge_name')
+# set aside merged locations
+df_merged7 = df_join[df_join['_merge']=='both']
+# select locations without a match
+df_nomatch = df_join[df_join['_merge']=='left_only']
+df_nomatch = df_nomatch[columns]
+
+# 4.)
+df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on='name', right_on='merge_name')
 # concat all dataFrames Dataframes 
-df_output = pd.concat([df_merged1, df_merged2, df_merged3, df_join], ignore_index=True)
+df_output = pd.concat([df_merged1, df_merged2, df_merged3, df_merged4, df_merged5, df_merged6, df_merged7, df_join], ignore_index=True)
 print(f'{df_output[df_output["_merge"]=="both"].shape[0]} out of {df_output.shape[0]}')
 
 # How well did we do?  
