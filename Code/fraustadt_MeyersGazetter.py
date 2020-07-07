@@ -162,8 +162,12 @@ print(f'The number of entries in Meyer Gazetter is: {df.shape[0]}')
 # next check which rows have Fraustadt in any of the "abbreviation columns"
 # search for lissa too, because fraustadt was split to Lissa and Frastadt after the census but before the Meyers
 # Gazetter data was compiled.
-# !! add regular expression and see if that improves the recognition.
-df_fraustadt = df[(df.values=="Fraustadt")|(df.values=="Lissa")]
+# two methods for extraction are seen, one that uses only the Kr column for the desired country and one that searches
+# for any exact reference to the county in any column
+# df_fraustadt = df[(df.values=="Fraustadt")|(df.values=="Lissa")]
+df_fraustadt = df[df['Kr'].str.startswith("Fraustadt",na=False)|df['Kr'].str.startswith("Lissa",na=False)]
+print(df_fraustadt[['id', 'lat', 'lng', 'Kr']].head())
+
 
 # !! To-Do: Improve "Landkreis" Selection
 # Find a better way to select the correct "Landkreis". For instance, we want to account for cases as [Storchnest](https://www.meyersgaz.org/place/20888081) for which the `Kr` and `AG` is `Lissa B. Posen` and not `Lissa`. Need to work with substrings for value selection!
