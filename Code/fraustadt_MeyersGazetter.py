@@ -126,8 +126,8 @@ def lev_array(unmatched_gazetter_name,unmatched_census_name):
     output is list of lists: [[census_name, closest gazzeter_name, levenshtein ratio]]
     """
     levenshtein_array = []
-    for census_name in unmatched_name_census:
-        for gazetter_name in unmatched_name_gazetter:
+    for census_name in unmatched_census_name:
+        for gazetter_name in unmatched_gazetter_name:
             if gazetter_name[0]!=census_name[0]:
                 continue
             ldist = levenshtein(gazetter_name,census_name)
@@ -422,12 +422,14 @@ df_remainder.to_excel(os.path.join(wdir, 'PrussianCensus1871/Fraustadt', 'Gazett
 unmatched_census_df = df_join[df_join['_merge']=='left_only']
 unmatched_census_df = unmatched_census_df[columns]
 unmatched_name_census = unmatched_census_df["name"]
+unmatched_altname_census = unmatched_census_df["alt_name"].astype(str)
 
 # extract entries in gazetter data:
 unmatched_name_gazetter = df_fraustadt['merge_name']
 
 # call levenshtein comparison function
 levenshtein_matches = lev_array(unmatched_name_gazetter, unmatched_name_census)
+levenshtein_matches += lev_array(unmatched_name_gazetter, unmatched_altname_census)
 print(levenshtein_matches)
 
 unmatched_census_df = unmatched_census_df.assign(lev_match = unmatched_census_df['name'])
