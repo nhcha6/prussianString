@@ -423,8 +423,8 @@ unmatched_census_df = df_join[df_join['_merge']=='left_only']
 unmatched_census_df = unmatched_census_df[columns]
 unmatched_name_census = unmatched_census_df["name"]
 
-# extract unmatched entries in gazetter data:
-unmatched_name_gazetter = df_remainder['merge_name']
+# extract entries in gazetter data:
+unmatched_name_gazetter = df_fraustadt['merge_name']
 
 # call levenshtein comparison function
 levenshtein_matches = lev_array(unmatched_name_gazetter, unmatched_name_census)
@@ -440,19 +440,17 @@ print(unmatched_census_df[['lev_match', 'name']].head())
 
 #lev_merge_df = merge_STATA(unmatched_census_df, df_remainder, how='left', left_on='lev_match', right_on='merge_name')
 
-# round 5 considered to be levenshtein distance merge
-df_remainder = df_remainder.assign(merge_round = 5)
 # column data has been updated to inculde lev_match so redeclare it
 columns = list(unmatched_census_df.columns)
 
-# split df_remainder into entries with and without location data:
-df_remainder_latlong = df_fraustadt[df_fraustadt['lat']!=0]
-df_remainder_null = df_fraustadt[df_fraustadt['lat']==0]
+# merge round 5 for levenshtein merge
+df_fraustadt_latlong = df_fraustadt_latlong.assign(merge_round = 5)
+df_fraustadt_null = df_fraustadt_null.assign(merge_round = 5)
 
 # follow the same iterative procedure as before, except using 'lev_match' instead of 'name' or 'alt_name'
 # first check gazetter entries with location data.
 #  1.) Merge if class and levenshtein distance match
-df_join = merge_STATA(unmatched_census_df, df_remainder_latlong, how='left', left_on=['lev_match', 'class'], right_on=['merge_name', 'class_gazetter'])
+df_join = merge_STATA(unmatched_census_df, df_fraustadt_latlong, how='left', left_on=['lev_match', 'class'], right_on=['merge_name', 'class_gazetter'])
 # set aside merged locations
 df_lev_merge1 = df_join[df_join['_merge']=='both']
 # select locations without a match
@@ -460,7 +458,7 @@ df_nomatch = df_join[df_join['_merge']=='left_only']
 df_nomatch = df_nomatch[columns]
 
 # 2.) Merge if levenshtein distance only matches
-df_join = merge_STATA(df_nomatch, df_remainder_latlong, how='left', left_on='lev_match', right_on='merge_name')
+df_join = merge_STATA(df_nomatch, df_fraustadt_latlong, how='left', left_on='lev_match', right_on='merge_name')
 # set aside merged locations
 df_lev_merge2 = df_join[df_join['_merge']=='both']
 # select locations without a match
@@ -469,7 +467,7 @@ df_nomatch = df_nomatch[columns]
 
 # check unmatched entries against non-location gazetter data
 #  1.) Merge if class and levenshtein distance match
-df_join = merge_STATA(df_nomatch, df_remainder_null, how='left', left_on=['lev_match', 'class'], right_on=['merge_name', 'class_gazetter'])
+df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on=['lev_match', 'class'], right_on=['merge_name', 'class_gazetter'])
 # set aside merged locations
 df_lev_merge3 = df_join[df_join['_merge']=='both']
 # select locations without a match
@@ -477,7 +475,7 @@ df_nomatch = df_join[df_join['_merge']=='left_only']
 df_nomatch = df_nomatch[columns]
 
 # 2.) Merge if levenshtein distance only matches
-df_join = merge_STATA(df_nomatch, df_remainder_null, how='left', left_on='lev_match', right_on='merge_name')
+df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on='lev_match', right_on='merge_name')
 
 # generate ouptut
 lev_merge_df = pd.concat([df_lev_merge1, df_lev_merge2, df_lev_merge3, df_join], ignore_index=True)
