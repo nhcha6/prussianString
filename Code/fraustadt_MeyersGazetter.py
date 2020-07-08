@@ -390,23 +390,18 @@ df_nomatch = df_nomatch[columns]
 # 4.)
 df_fraustadt_null = df_fraustadt_null.assign(merge_round = 4)
 df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on='name', right_on='merge_name')
+# set aside merged locations
+df_merge8 = df_join[df_join['_merge']=='both']
 # concat all dataFrames Dataframes 
-df_output = pd.concat([df_merged1, df_merged2, df_merged3, df_merged4, df_merged5, df_merged6, df_merged7, df_join], ignore_index=True)
-print(f'{df_output[df_output["_merge"]=="both"].shape[0]} out of {df_output.shape[0]}')
+df_output = pd.concat([df_merged1, df_merged2, df_merged3, df_merged4, df_merged5, df_merged6, df_merged7, df_merge8], ignore_index=True)
 
 # How well did we do?  
 # Note: We now do not consider duplicates but compare to the original excel-file entries
-print(f'''\n{df_output[df_output["_merge"]=="left_only"].shape[0]} out of {df_master.shape[0]} locations were not matched\n{(df_master.shape[0]-df_output[df_output["_merge"]=="left_only"].shape[0])/df_master.shape[0]*100:.2f}% of locations have a match''')
-
+print(f'''\n{df_join[df_join["_merge"]=="left_only"].shape[0]} out of {df_master.shape[0]} locations were not matched\n{(df_master.shape[0]-df_join[df_join["_merge"]=="left_only"].shape[0])/df_master.shape[0]*100:.2f}% of locations have a match''')
 
 # !! To-Do: Eliminate Duplicates: duplicates currently only occur when two matches are found on the same round of
 # a merge. Gazetter entries without location data are only considered for the municipalities in the census that do not
 # find a match that has location data.
-
-# write file to disk
-df_output.drop(columns=["_merge"], inplace=True)
-df_output.sort_values(by="loc_id", inplace=True)
-df_output.to_excel(os.path.join(wdir, 'PrussianCensus1871/Fraustadt', 'Posen-Fraustadt-kreiskey-134-merged.xlsx'), index=False)
 
 """---------------------------- ANALYSIS OF UNMATCHED ENTRIES - LEVENSHTEIN DISTANCE ---------------------------"""
 
@@ -435,7 +430,6 @@ print(levenshtein_matches)
 unmatched_census_df = unmatched_census_df.assign(lev_match = unmatched_census_df['name'])
 for match in levenshtein_matches:
     unmatched_census_df.loc[unmatched_census_df['lev_match']==match[0], 'lev_match'] = match[1]
-
 print(unmatched_census_df[['lev_match', 'name']].head())
 
 """ ------------------------------- CONDUCT MERGE ROUNDS BASED ON LEVENSTEIN DISTANCE ---------------------------- """
@@ -479,11 +473,18 @@ df_nomatch = df_nomatch[columns]
 # 2.) Merge if levenshtein distance only matches
 df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on='lev_match', right_on='merge_name')
 
-# generate ouptut
+# add to output, but also write to output dedicated to matched made by levenshtein merge.
+# write file to disk
 lev_merge_df = pd.concat([df_lev_merge1, df_lev_merge2, df_lev_merge3, df_join], ignore_index=True)
+df_output = pd.concat([df_output, lev_merge_df], ignore_index=True)
+
+# prepare for total output write to file
+df_output.drop(columns=["_merge"], inplace=True)
+df_output.sort_values(by="loc_id", inplace=True)
+df_output.to_excel(os.path.join(wdir, 'PrussianCensus1871/Fraustadt', 'Posen-Fraustadt-kreiskey-134-merged.xlsx'), index=False)
+
+# prepare for levenshtein matches write to file
 lev_merge_df.drop(columns=["_merge"], inplace=True)
 lev_merge_df.drop(columns=["lev_match"], inplace=True)
 lev_merge_df.sort_values(by="loc_id", inplace=True)
-
-# write to csv
 lev_merge_df.to_excel(os.path.join(wdir, 'PrussianCensus1871/Fraustadt', 'Posen-Fraustadt-kreiskey-134-lev_match_merge.xlsx'), index=False)
