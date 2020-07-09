@@ -540,6 +540,16 @@ match_perc = 100*(df_output_nodups.shape[0] - df_output_nodups[df_output_nodups[
 print(f'''\n{match_perc:.2f}% of locations were matched when levenshtein distance was considered''')
 loc_perc = 100*(df_output_nodups.shape[0]-df_output_nodups[df_output_nodups['lat']==0].shape[0])/df_output_nodups.shape[0]
 print(f'''\n{loc_perc:.2f}% of locations were matched to geocode data''')
+round1_perc = 100*df_output_nodups[df_output_nodups['merge_round']==1].shape[0]/df_output_nodups.shape[0]
+print(f'''\n{round1_perc:.2f}% of locations were matched by classification and the exact name''')
+round2_perc = 100*df_output_nodups[df_output_nodups['merge_round']==2].shape[0]/df_output_nodups.shape[0]
+print(f'''\n{round2_perc:.2f}% of locations were matched by classification and the simplified name''')
+round3_perc = 100*df_output_nodups[df_output_nodups['merge_round']==3].shape[0]/df_output_nodups.shape[0]
+print(f'''\n{round3_perc:.2f}% of locations were matched by exact name only''')
+round4_perc = 100*df_output_nodups[df_output_nodups['merge_round']==4].shape[0]/df_output_nodups.shape[0]
+print(f'''\n{round4_perc:.2f}% of locations were matched by simplified name only''')
+round5_perc = 100*df_output_nodups[df_output_nodups['merge_round']==5].shape[0]/df_output_nodups.shape[0]
+print(f'''\n{round5_perc:.2f}% of locations were matched by simplifying the name from both the census and meyers gazetter''')
 
 # import csv to data frame, edit it and output new data frame to csv
 df_merge_details = pd.read_excel(os.path.join(wdir, 'PrussianCensus1871/', 'MergeDetails.xlsx'))
@@ -553,6 +563,11 @@ if df_merge_details[df_merge_details['county']==county].empty:
 df_merge_details.loc[df_merge_details['county']==county, 'exact_match_perc'] = exact_match_perc
 df_merge_details.loc[df_merge_details['county']==county, 'match_perc'] = match_perc
 df_merge_details.loc[df_merge_details['county']==county, 'loc_perc'] = loc_perc
+df_merge_details.loc[df_merge_details['county']==county, 'round1_perc'] = round1_perc
+df_merge_details.loc[df_merge_details['county']==county, 'round2_perc'] = round2_perc
+df_merge_details.loc[df_merge_details['county']==county, 'round3_perc'] = round3_perc
+df_merge_details.loc[df_merge_details['county']==county, 'round4_perc'] = round4_perc
+df_merge_details.loc[df_merge_details['county']==county, 'round5_perc'] = round5_perc
 
 lev_typo = ""
 for match in levenshtein_matches:
