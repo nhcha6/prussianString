@@ -15,6 +15,7 @@ import json
 import numpy as np
 from tabulate import tabulate
 import re
+import math
 
 # set working directory path as location of data
 wdir = '/Users/nicolaschapman/Documents/PrussianStringMatching/Data/'
@@ -168,8 +169,6 @@ print(f'The number of entries in Meyer Gazetter is: {df.shape[0]}')
 df_fraustadt = df[df['Kr'].str.startswith("Fraustadt",na=False)|df['Kr'].str.startswith("Lissa",na=False)|df['AG'].str.startswith("Fraustadt",na=False)|df['AG'].str.startswith("Lissa",na=False)]
 #df_fraustadt = pd.concat([df_fraustadt, ], ignore_index=True)
 
-print(df_fraustadt[['id', 'lat', 'lng', 'Kr']].head())
-
 
 # !! To-Do: Improve "Landkreis" Selection
 # Find a better way to select the correct "Landkreis". For instance, we want to account for cases as [
@@ -249,9 +248,9 @@ for string in testset:
 df_fraustadt['Type'] = df_fraustadt['Type'].astype(str)
 # make apply check_type() function
 df_fraustadt['class_gazetter'] = df_fraustadt['Type'].apply(check_type)
-# check results
-print("checking the class_gazette column has been successfully and accurately added")
-print(df_fraustadt[['id', 'name_gazetter', 'lat', 'lng','Type', 'merge_name', 'class_gazetter']].head())
+# # check results
+# print("checking the class_gazette column has been successfully and accurately added")
+# print(df_fraustadt[['id', 'name_gazetter', 'lat', 'lng','Type', 'merge_name', 'class_gazetter']].head())
 
 # split df_fraustadt into lat/long == null and lat/long!=null
 df_fraustadt_latlong = df_fraustadt[df_fraustadt['lat']!=0]
@@ -324,6 +323,7 @@ print(f'Number of locations in master file equals {df_master.shape[0]}')
 #  1.) 
 columns = list(df_master.columns)
 df_fraustadt_latlong = df_fraustadt_latlong.assign(merge_round = 1)
+print("Merging if detailed census name and class match a gazetter entry with location data")
 df_join = merge_STATA(df_master, df_fraustadt_latlong, how='left', left_on=['alt_name', 'class'], right_on=['merge_name', 'class_gazetter'])
 # set aside merged locations
 df_merged1 = df_join[df_join['_merge']=='both']
@@ -333,6 +333,7 @@ df_nomatch = df_nomatch[columns]
 
 # 2.)
 df_fraustadt_latlong = df_fraustadt_latlong.assign(merge_round = 2)
+print("Merging if simplified census name and class match a gazetter entry with location data")
 df_join = merge_STATA(df_nomatch, df_fraustadt_latlong, how='left', left_on=['name', 'class'], right_on=['merge_name', 'class_gazetter'])
 # set aside merged locations
 df_merged2 = df_join[df_join['_merge']=='both']
@@ -343,6 +344,7 @@ df_nomatch = df_nomatch[columns]
 
 # 3.)
 df_fraustadt_latlong = df_fraustadt_latlong.assign(merge_round = 3)
+print("Merging if detailed census name matches a gazetter entry with location data")
 df_join = merge_STATA(df_nomatch, df_fraustadt_latlong, how='left', left_on='alt_name', right_on='merge_name')
 # set aside merged locations
 df_merged3 = df_join[df_join['_merge']=='both']
@@ -352,6 +354,7 @@ df_nomatch = df_nomatch[columns]
 
 # 4.)
 df_fraustadt_latlong = df_fraustadt_latlong.assign(merge_round = 4)
+print("Merging if simplified census name matches a gazetter entry with location data")
 df_join = merge_STATA(df_nomatch, df_fraustadt_latlong, how='left', left_on='name', right_on='merge_name')
 # set aside merged locations
 df_merged4 = df_join[df_join['_merge']=='both']
@@ -362,6 +365,7 @@ df_nomatch = df_nomatch[columns]
 # Repeat for gazetter entries with null lat-long just for clarity of a match
 #  1.)
 df_fraustadt_null = df_fraustadt_null.assign(merge_round = 1)
+print("Merging if detailed census name and class match a gazetter entry WITHOUT location data")
 df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on=['alt_name', 'class'], right_on=['merge_name', 'class_gazetter'])
 # set aside merged locations
 df_merged5 = df_join[df_join['_merge']=='both']
@@ -371,6 +375,7 @@ df_nomatch = df_nomatch[columns]
 
 # 2.)
 df_fraustadt_null = df_fraustadt_null.assign(merge_round = 2)
+print("Merging if simplified census name and class match a gazetter entry WITHOUT location data")
 df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on=['name', 'class'], right_on=['merge_name', 'class_gazetter'])
 # set aside merged locations
 df_merged6 = df_join[df_join['_merge']=='both']
@@ -380,6 +385,7 @@ df_nomatch = df_nomatch[columns]
 
 # 3.)
 df_fraustadt_null = df_fraustadt_null.assign(merge_round = 3)
+print("Merging if detailed census name matches a gazetter entry WITHOUT location data")
 df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on='alt_name', right_on='merge_name')
 # set aside merged locations
 df_merged7 = df_join[df_join['_merge']=='both']
@@ -389,6 +395,7 @@ df_nomatch = df_nomatch[columns]
 
 # 4.)
 df_fraustadt_null = df_fraustadt_null.assign(merge_round = 4)
+print("Merging if simplified census name matches a gazetter entry WITHOUT location data")
 df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on='name', right_on='merge_name')
 # set aside merged locations
 df_merge8 = df_join[df_join['_merge']=='both']
@@ -397,7 +404,7 @@ df_output = pd.concat([df_merged1, df_merged2, df_merged3, df_merged4, df_merged
 
 # How well did we do?  
 # Note: We now do not consider duplicates but compare to the original excel-file entries
-print(f'''\n{df_join[df_join["_merge"]=="left_only"].shape[0]} out of {df_master.shape[0]} locations were not matched\n{(df_master.shape[0]-df_join[df_join["_merge"]=="left_only"].shape[0])/df_master.shape[0]*100:.2f}% of locations have a match''')
+exact_match_perc = (df_master.shape[0]-df_join[df_join["_merge"]=="left_only"].shape[0])/df_master.shape[0]*100
 
 # !! To-Do: Eliminate Duplicates: duplicates currently only occur when two matches are found on the same round of
 # a merge. Gazetter entries without location data are only considered for the municipalities in the census that do not
@@ -425,12 +432,11 @@ unmatched_name_gazetter = df_fraustadt['merge_name']
 # call levenshtein comparison function
 levenshtein_matches = lev_array(unmatched_name_gazetter, unmatched_name_census)
 levenshtein_matches += lev_array(unmatched_name_gazetter, unmatched_altname_census)
-print(levenshtein_matches)
 
+# convert list of lists to data frame
 unmatched_census_df = unmatched_census_df.assign(lev_match = unmatched_census_df['name'])
 for match in levenshtein_matches:
     unmatched_census_df.loc[unmatched_census_df['lev_match']==match[0], 'lev_match'] = match[1]
-print(unmatched_census_df[['lev_match', 'name']].head())
 
 """ ------------------------------- CONDUCT MERGE ROUNDS BASED ON LEVENSTEIN DISTANCE ---------------------------- """
 
@@ -446,6 +452,7 @@ df_fraustadt_null = df_fraustadt_null.assign(merge_round = 5)
 # follow the same iterative procedure as before, except using 'lev_match' instead of 'name' or 'alt_name'
 # first check gazetter entries with location data.
 #  1.) Merge if class and levenshtein distance match
+print("Merging if name matches via levenshtein distance algortithm and class matches a gazetter entry with location data")
 df_join = merge_STATA(unmatched_census_df, df_fraustadt_latlong, how='left', left_on=['lev_match', 'class'], right_on=['merge_name', 'class_gazetter'])
 # set aside merged locations
 df_lev_merge1 = df_join[df_join['_merge']=='both']
@@ -454,6 +461,7 @@ df_nomatch = df_join[df_join['_merge']=='left_only']
 df_nomatch = df_nomatch[columns]
 
 # 2.) Merge if levenshtein distance only matches
+print("Merging if name matches via levenshtein distance algortithm a gazetter entry with location data")
 df_join = merge_STATA(df_nomatch, df_fraustadt_latlong, how='left', left_on='lev_match', right_on='merge_name')
 # set aside merged locations
 df_lev_merge2 = df_join[df_join['_merge']=='both']
@@ -463,6 +471,7 @@ df_nomatch = df_nomatch[columns]
 
 # check unmatched entries against non-location gazetter data
 #  1.) Merge if class and levenshtein distance match
+print("Merging if name matches via levenshtein distance algortithm and class matches a gazetter entry WITHOUT location data")
 df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on=['lev_match', 'class'], right_on=['merge_name', 'class_gazetter'])
 # set aside merged locations
 df_lev_merge3 = df_join[df_join['_merge']=='both']
@@ -471,6 +480,7 @@ df_nomatch = df_join[df_join['_merge']=='left_only']
 df_nomatch = df_nomatch[columns]
 
 # 2.) Merge if levenshtein distance only matches
+print("Merging if name matches via levenshtein distance algortithm a gazetter entry WITHOUT location data")
 df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on='lev_match', right_on='merge_name')
 
 # add to output, but also write to output dedicated to matched made by levenshtein merge.
@@ -478,9 +488,13 @@ df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on='lev_ma
 lev_merge_df = pd.concat([df_lev_merge1, df_lev_merge2, df_lev_merge3, df_join], ignore_index=True)
 df_output = pd.concat([df_output, lev_merge_df], ignore_index=True)
 
+# drop duplicates from output arbitratilly. !! Need a method.
+df_output_nodups = df_output.drop_duplicates(subset=['loc_id'], keep='last')
+
 # prepare for total output write to file
 df_output.drop(columns=["_merge"], inplace=True)
 df_output.sort_values(by="loc_id", inplace=True)
+df_output.drop(columns=["lev_match"], inplace=True)
 df_output.to_excel(os.path.join(wdir, 'PrussianCensus1871/Fraustadt', 'Posen-Fraustadt-kreiskey-134-merged.xlsx'), index=False)
 
 # prepare for levenshtein matches write to file
@@ -488,3 +502,10 @@ lev_merge_df.drop(columns=["_merge"], inplace=True)
 lev_merge_df.drop(columns=["lev_match"], inplace=True)
 lev_merge_df.sort_values(by="loc_id", inplace=True)
 lev_merge_df.to_excel(os.path.join(wdir, 'PrussianCensus1871/Fraustadt', 'Posen-Fraustadt-kreiskey-134-lev_match_merge.xlsx'), index=False)
+
+""" ------------------------------------ CALCULATE QUALITY STATISTICS ----------------------------------------"""
+print(f'''\n{exact_match_perc:.2f}% of locations have match with the same name''')
+match_perc = 100*(df_output_nodups.shape[0] - df_output_nodups[df_output_nodups['id'].isnull()].shape[0])/df_output_nodups.shape[0]
+print(f'''\n{match_perc:.2f}% of locations were matched when levenshtein distance was considered''')
+loc_perc = 100*(df_output_nodups.shape[0]-df_output_nodups[df_output_nodups['lat']==0].shape[0])/df_output_nodups.shape[0]
+print(f'''\n{loc_perc:.2f}% of locations were matched to geocode data''')
