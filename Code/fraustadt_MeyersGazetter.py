@@ -509,3 +509,18 @@ match_perc = 100*(df_output_nodups.shape[0] - df_output_nodups[df_output_nodups[
 print(f'''\n{match_perc:.2f}% of locations were matched when levenshtein distance was considered''')
 loc_perc = 100*(df_output_nodups.shape[0]-df_output_nodups[df_output_nodups['lat']==0].shape[0])/df_output_nodups.shape[0]
 print(f'''\n{loc_perc:.2f}% of locations were matched to geocode data''')
+
+# import csv to data frame, edit it and output new data frame to csv
+df_merge_details = pd.read_excel(os.path.join(wdir, 'PrussianCensus1871/', 'MergeDetails.xlsx'))
+
+df_merge_details.loc[df_merge_details['county']=='Fraustadt', 'exact_match_perc'] = exact_match_perc
+df_merge_details.loc[df_merge_details['county']=='Fraustadt', 'match_perc'] = match_perc
+df_merge_details.loc[df_merge_details['county']=='Fraustadt', 'loc_perc'] = loc_perc
+
+lev_typo = ""
+for match in levenshtein_matches:
+    lev_typo += match[0] + " - " + match[1] + " | "
+df_merge_details.loc[df_merge_details['county']=='Fraustadt', 'lev_typo'] = lev_typo
+
+df_merge_details.to_excel(os.path.join(wdir, 'PrussianCensus1871/', 'MergeDetails.xlsx'), index=False)
+
