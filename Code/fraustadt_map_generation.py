@@ -4,8 +4,6 @@ import pandas as pd
 import geopandas as gpd
 import geoplot as gplt
 import matplotlib.pyplot as plt
-from shapely.geometry import shape
-from geopandas.tools import sjoin
 
 def plot_on_map(points_gdf, map_gdf):
     # plot prussia base map and fraustadt points
@@ -48,7 +46,7 @@ for i in range(20):
     noisy_df = noisy_df.assign(lat = np.random.normal(fraustadt_merged_df['lat'],0.02))
     noisy_df = noisy_df.assign(lng = np.random.normal(fraustadt_merged_df['lng'],0.02))
     noisy_gdf = gpd.GeoDataFrame(noisy_df, geometry=gpd.points_from_xy(noisy_df.lng, noisy_df.lat))
-    noisy_gdf = noisy_gdf.set_crs(epsg=4326)
+    noisy_gdf.crs = {'init': 'epsg:4326'}
     within = noisy_gdf[noisy_gdf.within(county_poly)]
     for j in within.index:
         index_in_county.add(j)
@@ -60,14 +58,16 @@ fraustadt_merged_df['lng'] = np.random.normal(fraustadt_merged_df['lng'],0.01)
 
 # convert to geo data frame
 fraustadt_merged_gdf = gpd.GeoDataFrame(fraustadt_merged_df, geometry=gpd.points_from_xy(fraustadt_merged_df.lng,fraustadt_merged_df.lat))
-fraustadt_merged_gdf = fraustadt_merged_gdf.set_crs(epsg=4326)
+fraustadt_merged_gdf.crs = {'init': 'epsg:4326'}
 
 # update to only keen the locations deemed to be within the county
 fraustadt_merged_gdf = fraustadt_merged_gdf.loc[index_in_county]
 
 #plot_on_map(fraustadt_merged_gdf, prussia_map)
 
-ax = gplt.voronoi(fraustadt_merged_gdf.head(10))
-gplt.polyplot(county_gdf, ax=ax)
+ax = gplt.voronoi(fraustadt_merged_gdf, hue='class', clip=county_gdf.simplify(0.001))
+#gplt.pointplot(fraustadt_merged_gdf, ax=ax)
+
+
 plt.show()
 
