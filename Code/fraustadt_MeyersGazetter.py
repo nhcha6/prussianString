@@ -20,6 +20,9 @@ import math
 # set working directory path as location of data
 wdir = '/Users/nicolaschapman/Documents/PrussianStringMatching/Data/'
 
+# set county name to be run
+county = "Fraustadt"
+
 """---------------------------------- DECLARE FUNCTIONS ----------------------------------"""
 
 def merge_STATA(master, using, how='outer', on=None, left_on=None, right_on=None, indicator=True,
@@ -513,14 +516,20 @@ print(f'''\n{loc_perc:.2f}% of locations were matched to geocode data''')
 # import csv to data frame, edit it and output new data frame to csv
 df_merge_details = pd.read_excel(os.path.join(wdir, 'PrussianCensus1871/', 'MergeDetails.xlsx'))
 
-df_merge_details.loc[df_merge_details['county']=='Fraustadt', 'exact_match_perc'] = exact_match_perc
-df_merge_details.loc[df_merge_details['county']=='Fraustadt', 'match_perc'] = match_perc
-df_merge_details.loc[df_merge_details['county']=='Fraustadt', 'loc_perc'] = loc_perc
+# if county has never been run, add new entry
+if df_merge_details[df_merge_details['county']==county].empty:
+    new_county = df_merge_details.loc[0]
+    new_county = new_county.replace(new_county['county'],county)
+    df_merge_details = df_merge_details.append(new_county)
+
+df_merge_details.loc[df_merge_details['county']==county, 'exact_match_perc'] = exact_match_perc
+df_merge_details.loc[df_merge_details['county']==county, 'match_perc'] = match_perc
+df_merge_details.loc[df_merge_details['county']==county, 'loc_perc'] = loc_perc
 
 lev_typo = ""
 for match in levenshtein_matches:
     lev_typo += match[0] + " - " + match[1] + " | "
-df_merge_details.loc[df_merge_details['county']=='Fraustadt', 'lev_typo'] = lev_typo
+df_merge_details.loc[df_merge_details['county']==county, 'lev_typo'] = lev_typo
 
 df_merge_details.to_excel(os.path.join(wdir, 'PrussianCensus1871/', 'MergeDetails.xlsx'), index=False)
 
