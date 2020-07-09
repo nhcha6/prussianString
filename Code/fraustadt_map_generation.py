@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from shapely.geometry import shape
 from geopandas.tools import sjoin
 
-def plot_location(points_gdf, map_gdf):
+def plot_on_map(points_gdf, map_gdf):
     # plot prussia base map and fraustadt points
     fraustadt_plot = gplt.pointplot(points_gdf, hue='class', legend=True)
     gplt.polyplot(map_gdf, ax=fraustadt_plot)
@@ -33,25 +33,6 @@ fraustadt_merged_df = fraustadt_merged_df[fraustadt_merged_df['lat']!=0]
 county_gdf = prussia_map[prussia_map['NAME']==county]
 county_gdf.index = [0]
 county_poly = county_gdf.loc[0,'geometry']
-
-# convert to geo data frame
-# unfiltered_gdf = gpd.GeoDataFrame(fraustadt_merged_df, geometry=gpd.points_from_xy(fraustadt_merged_df.lng,fraustadt_merged_df.lat))
-# unfiltered_gdf = unfiltered_gdf.set_crs(epsg=4326)
-#
-# # add to final geodata frame if points are within the county poly
-# fraustadt_merged_gdf = unfiltered_gdf[unfiltered_gdf.within(county_poly)]
-#
-# # add some variation and loop multiple times to add points which are very close to the border
-# for i in range(10):
-#     # add noise
-#     fraustadt_merged_df['lat'] = np.random.normal(fraustadt_merged_df['lat'], 0.05)
-#     fraustadt_merged_df['lng'] = np.random.normal(fraustadt_merged_df['lng'], 0.05)
-#     # redeclare unfiltered gdf
-#     unfiltered_gdf = gpd.GeoDataFrame(fraustadt_merged_df,geometry=gpd.points_from_xy(fraustadt_merged_df.lng, fraustadt_merged_df.lat))
-#     unfiltered_gdf = unfiltered_gdf.set_crs(epsg=4326)
-#     # add to final geodata frame if points are within the county poly
-#     fraustadt_merged_gdf = pd.concat([fraustadt_merged_gdf, unfiltered_gdf[unfiltered_gdf.within(county_poly)]]ignore_index=True)
-
 
 # if there are multiple matches, simply take the second for now. !! still need better duplicate distinction.
 fraustadt_merged_df = fraustadt_merged_df.drop_duplicates(subset=['loc_id'], keep='first')
@@ -84,7 +65,9 @@ fraustadt_merged_gdf = fraustadt_merged_gdf.set_crs(epsg=4326)
 # update to only keen the locations deemed to be within the county
 fraustadt_merged_gdf = fraustadt_merged_gdf.loc[index_in_county]
 
-plot_location(fraustadt_merged_gdf, prussia_map)
+#plot_on_map(fraustadt_merged_gdf, prussia_map)
 
-
+ax = gplt.voronoi(fraustadt_merged_gdf.head(10))
+gplt.polyplot(county_gdf, ax=ax)
+plt.show()
 
