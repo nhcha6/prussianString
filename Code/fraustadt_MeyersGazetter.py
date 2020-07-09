@@ -140,7 +140,7 @@ def lev_array(unmatched_gazetter_name,unmatched_census_name):
                 levenshtein_array.append(entry)
     return levenshtein_array
 
-""" ----------------------------------- LOAD GAZETTE DATA AND FILTER FOR DESIRED COUNTY -----------------------------------"""
+""" ----------------------------------- LOAD GAZETTE DATA AND CLEAN FOR MERGE -----------------------------------"""
 
 # load in json file of (combinded) Gazetter entries
 # commented out as saving of df means it need only run once
@@ -191,6 +191,8 @@ df_fraustadt.rename(columns = {'name': 'name_gazetter'}, inplace=True)
 # sanity check if Fraustadt is still present
 df_fraustadt[df_fraustadt['id']=='10505026']
 
+# extract base name, eg: Zedlitz from Nieder Zedlitz
+df_fraustadt['base_merge_name'] = df_fraustadt['merge_name'].str.extract(r'.*\s(.*)', expand=True)
 
 # Let's define a dictionary to match the [Meyers gazetter types](https://www.familysearch.org/wiki/en/Abbreviation_Table_for_Meyers_Orts_und_Verkehrs_Lexikon_Des_Deutschen_Reichs) to the three classes `stadt, landgemeinde, gutsbezirk`.
 dictionary_types  = {"HptSt.": "stadt",     # Hauptstadt
@@ -322,6 +324,7 @@ print(f'Number of locations in master file equals {df_master.shape[0]}')
 # 2. "non-matched" locations will be considered in a second merge based on the location `name` which is the location name without any suffixes and the `class` label
 # 3. "non-matched" locations will be considered in a third merge based on "more restrivtive" `alt_name` **but not** on `class` label 
 # 4. "non-matched" locations will be considered in a fourth merge based on `name` **but not** on `class` label
+# 5. "non-matched" locations will be considered in a fourth merge based only on the most basic form of both names.
 
 #  1.) 
 columns = list(df_master.columns)
@@ -365,13 +368,23 @@ df_merged4 = df_join[df_join['_merge']=='both']
 df_nomatch = df_join[df_join['_merge']=='left_only']
 df_nomatch = df_nomatch[columns]
 
+# 5.)
+df_fraustadt_latlong = df_fraustadt_latlong.assign(merge_round = 5)
+print("Merging if simplified census name matches simplified gazetter entry with location data")
+df_join = merge_STATA(df_nomatch, df_fraustadt_latlong, how='left', left_on='name', right_on='base_merge_name')
+# set aside merged locations
+df_merged5 = df_join[df_join['_merge']=='both']
+# select locations without a match
+df_nomatch = df_join[df_join['_merge']=='left_only']
+df_nomatch = df_nomatch[columns]
+
 # Repeat for gazetter entries with null lat-long just for clarity of a match
 #  1.)
 df_fraustadt_null = df_fraustadt_null.assign(merge_round = 1)
 print("Merging if detailed census name and class match a gazetter entry WITHOUT location data")
 df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on=['alt_name', 'class'], right_on=['merge_name', 'class_gazetter'])
 # set aside merged locations
-df_merged5 = df_join[df_join['_merge']=='both']
+df_merged6 = df_join[df_join['_merge']=='both']
 # select locations without a match
 df_nomatch = df_join[df_join['_merge']=='left_only']
 df_nomatch = df_nomatch[columns]
@@ -381,7 +394,7 @@ df_fraustadt_null = df_fraustadt_null.assign(merge_round = 2)
 print("Merging if simplified census name and class match a gazetter entry WITHOUT location data")
 df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on=['name', 'class'], right_on=['merge_name', 'class_gazetter'])
 # set aside merged locations
-df_merged6 = df_join[df_join['_merge']=='both']
+df_merged7 = df_join[df_join['_merge']=='both']
 # select locations without a match
 df_nomatch = df_join[df_join['_merge']=='left_only']
 df_nomatch = df_nomatch[columns]
@@ -391,7 +404,7 @@ df_fraustadt_null = df_fraustadt_null.assign(merge_round = 3)
 print("Merging if detailed census name matches a gazetter entry WITHOUT location data")
 df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on='alt_name', right_on='merge_name')
 # set aside merged locations
-df_merged7 = df_join[df_join['_merge']=='both']
+df_merged8 = df_join[df_join['_merge']=='both']
 # select locations without a match
 df_nomatch = df_join[df_join['_merge']=='left_only']
 df_nomatch = df_nomatch[columns]
@@ -401,9 +414,20 @@ df_fraustadt_null = df_fraustadt_null.assign(merge_round = 4)
 print("Merging if simplified census name matches a gazetter entry WITHOUT location data")
 df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on='name', right_on='merge_name')
 # set aside merged locations
-df_merge8 = df_join[df_join['_merge']=='both']
+df_merged9 = df_join[df_join['_merge']=='both']
+# select locations without a match
+df_nomatch = df_join[df_join['_merge']=='left_only']
+df_nomatch = df_nomatch[columns]
+
+# 5.)
+df_fraustadt_null = df_fraustadt_null.assign(merge_round = 5)
+print("Merging if simplified census name matches simlified gazetter entry WITHOUT location data")
+df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on='name', right_on='base_merge_name')
+# set aside merged locations
+df_merged10 = df_join[df_join['_merge']=='both']
+
 # concat all dataFrames Dataframes 
-df_output = pd.concat([df_merged1, df_merged2, df_merged3, df_merged4, df_merged5, df_merged6, df_merged7, df_merge8], ignore_index=True)
+df_output = pd.concat([df_merged1, df_merged2, df_merged3, df_merged4, df_merged5, df_merged6, df_merged7, df_merged8, df_merged9, df_merged10], ignore_index=True)
 
 # How well did we do?  
 # Note: We now do not consider duplicates but compare to the original excel-file entries
@@ -449,8 +473,8 @@ for match in levenshtein_matches:
 columns = list(unmatched_census_df.columns)
 
 # merge round 5 for levenshtein merge
-df_fraustadt_latlong = df_fraustadt_latlong.assign(merge_round = 5)
-df_fraustadt_null = df_fraustadt_null.assign(merge_round = 5)
+df_fraustadt_latlong = df_fraustadt_latlong.assign(merge_round = 6)
+df_fraustadt_null = df_fraustadt_null.assign(merge_round = 6)
 
 # follow the same iterative procedure as before, except using 'lev_match' instead of 'name' or 'alt_name'
 # first check gazetter entries with location data.
