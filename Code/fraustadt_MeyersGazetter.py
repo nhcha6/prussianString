@@ -131,6 +131,8 @@ def lev_array(unmatched_gazetter_name,unmatched_census_name):
     """
     levenshtein_array = []
     for census_name in unmatched_census_name:
+        if census_name == 'nan':
+            continue
         for gazetter_name in unmatched_gazetter_name:
             if gazetter_name[0]!=census_name[0]:
                 continue
@@ -455,10 +457,12 @@ unmatched_altname_census = unmatched_census_df["alt_name"].astype(str)
 
 # extract entries in gazetter data:
 unmatched_name_gazetter = df_fraustadt['merge_name']
+unmatched_base_name_gazetter = df_fraustadt['base_merge_name'].astype(str)
 
 # call levenshtein comparison function
 levenshtein_matches = lev_array(unmatched_name_gazetter, unmatched_name_census)
 levenshtein_matches += lev_array(unmatched_name_gazetter, unmatched_altname_census)
+levenshtein_matches += lev_array(unmatched_base_name_gazetter, unmatched_name_census)
 
 # convert list of lists to data frame
 unmatched_census_df = unmatched_census_df.assign(lev_match = unmatched_census_df['name'])
