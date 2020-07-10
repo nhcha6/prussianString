@@ -550,7 +550,69 @@ def lev_merge(df_county_gaz, df_merge, unmatched_census_df):
 
     return df_merge, df_lev_merge
 
+def write_merged_data(df_merged, df_lev_merged):
+    # prepare for total output write to file
+    df_merged.drop(columns=["_merge"], inplace=True)
+    df_merged.sort_values(by="loc_id", inplace=True)
+    df_merged.drop(columns=["lev_match"], inplace=True)
+    df_merged.to_excel(os.path.join(wdir, 'PrussianCensus1871/Fraustadt', 'Posen-Fraustadt-kreiskey-134-merged.xlsx'),
+                       index=False)
+    # prepare for levenshtein matches write to file
+    df_lev_merged.drop(columns=["_merge"], inplace=True)
+    df_lev_merged.drop(columns=["lev_match"], inplace=True)
+    df_lev_merged.sort_values(by="loc_id", inplace=True)
+    df_lev_merged.to_excel(
+        os.path.join(wdir, 'PrussianCensus1871/Fraustadt', 'Posen-Fraustadt-kreiskey-134-lev_match_merge.xlsx'),
+        index=False)
 
+    """ ------------------------------------ CALCULATE QUALITY STATISTICS ----------------------------------------"""
+def qual_stat(exact_match_perc, df_merge_nodups):
+    print(f'''\n{exact_match_perc:.2f}% of locations have match with the same name''')
+    match_perc = 100 * (df_merge_nodups.shape[0] - df_merge_nodups[df_merge_nodups['id'].isnull()].shape[0]) / \
+                 df_merge_nodups.shape[0]
+    print(f'''\n{match_perc:.2f}% of locations were matched when levenshtein distance was considered''')
+    loc_perc = 100 * (df_merge_nodups.shape[0] - df_merge_nodups[df_merge_nodups['lat'] == 0].shape[0]) / \
+               df_merge_nodups.shape[0]
+    print(f'''\n{loc_perc:.2f}% of locations were matched to geocode data''')
+    round1_perc = 100 * df_merge_nodups[df_merge_nodups['merge_round'] == 1].shape[0] / df_merge_nodups.shape[0]
+    print(f'''\n{round1_perc:.2f}% of locations were matched by classification and the exact name''')
+    round2_perc = 100 * df_merge_nodups[df_merge_nodups['merge_round'] == 2].shape[0] / df_merge_nodups.shape[0]
+    print(f'''\n{round2_perc:.2f}% of locations were matched by classification and the simplified name''')
+    round3_perc = 100 * df_merge_nodups[df_merge_nodups['merge_round'] == 3].shape[0] / df_merge_nodups.shape[0]
+    print(f'''\n{round3_perc:.2f}% of locations were matched by exact name only''')
+    round4_perc = 100 * df_merge_nodups[df_merge_nodups['merge_round'] == 4].shape[0] / df_merge_nodups.shape[0]
+    print(f'''\n{round4_perc:.2f}% of locations were matched by simplified name only''')
+    round5_perc = 100 * df_merge_nodups[df_merge_nodups['merge_round'] == 5].shape[0] / df_merge_nodups.shape[0]
+    print(
+        f'''\n{round5_perc:.2f}% of locations were matched by simplifying the name from both the census and meyers gazetter''')
+
+    # import csv to data frame, edit it and output new data frame to csv
+    df_merge_details = pd.read_excel(os.path.join(wdir, 'PrussianCensus1871/', 'MergeDetails.xlsx'))
+
+    # if county has never been run, add new entry
+    if df_merge_details[df_merge_details['county'] == county].empty:
+        new_county = df_merge_details.loc[0]
+        new_county = new_county.replace(new_county['county'], county)
+        df_merge_details = df_merge_details.append(new_county)
+
+    df_merge_details.loc[df_merge_details['county'] == county, 'exact_match_perc'] = exact_match_perc
+    df_merge_details.loc[df_merge_details['county'] == county, 'match_perc'] = match_perc
+    df_merge_details.loc[df_merge_details['county'] == county, 'loc_perc'] = loc_perc
+    df_merge_details.loc[df_merge_details['county'] == county, 'round1_perc'] = round1_perc
+    df_merge_details.loc[df_merge_details['county'] == county, 'round2_perc'] = round2_perc
+    df_merge_details.loc[df_merge_details['county'] == county, 'round3_perc'] = round3_perc
+    df_merge_details.loc[df_merge_details['county'] == county, 'round4_perc'] = round4_perc
+    df_merge_details.loc[df_merge_details['county'] == county, 'round5_perc'] = round5_perc
+
+    lev_typo = ""
+    for match in levenshtein_matches:
+        lev_typo += match[0] + " - " + match[1] + " | "
+    df_merge_details.loc[df_merge_details['county'] == county, 'lev_typo'] = lev_typo
+
+    df_merge_details.to_excel(os.path.join(wdir, 'PrussianCensus1871/', 'MergeDetails.xlsx'), index=False)
+
+
+# gather gazetter entires
 df_fraustadt = gazetter_data(county,alt_county)
 
 # split df_fraustadt into lat/long == null and lat/long!=null
@@ -565,66 +627,13 @@ unmatched_census_df, levenshtein_matches = lev_dist_calc(df_master, df_fraustadt
 
 df_output, lev_merge_df = lev_merge(df_fraustadt, df_output, unmatched_census_df)
 
+# write to file
+write_merged_data(df_output, lev_merge_df)
+
 # drop duplicates from output arbitratilly. !! Need a method.
 df_output_nodups = df_output.drop_duplicates(subset=['loc_id'], keep='last')
 
-# prepare for total output write to file
-df_output.drop(columns=["_merge"], inplace=True)
-df_output.sort_values(by="loc_id", inplace=True)
-df_output.drop(columns=["lev_match"], inplace=True)
-df_output.to_excel(os.path.join(wdir, 'PrussianCensus1871/Fraustadt', 'Posen-Fraustadt-kreiskey-134-merged.xlsx'),
-                   index=False)
+qual_stat(exact_match_perc, df_output_nodups)
 
-# prepare for levenshtein matches write to file
-lev_merge_df.drop(columns=["_merge"], inplace=True)
-lev_merge_df.drop(columns=["lev_match"], inplace=True)
-lev_merge_df.sort_values(by="loc_id", inplace=True)
-lev_merge_df.to_excel(
-    os.path.join(wdir, 'PrussianCensus1871/Fraustadt', 'Posen-Fraustadt-kreiskey-134-lev_match_merge.xlsx'),
-    index=False)
 
-""" ------------------------------------ CALCULATE QUALITY STATISTICS ----------------------------------------"""
-print(f'''\n{exact_match_perc:.2f}% of locations have match with the same name''')
-match_perc = 100 * (df_output_nodups.shape[0] - df_output_nodups[df_output_nodups['id'].isnull()].shape[0]) / \
-             df_output_nodups.shape[0]
-print(f'''\n{match_perc:.2f}% of locations were matched when levenshtein distance was considered''')
-loc_perc = 100 * (df_output_nodups.shape[0] - df_output_nodups[df_output_nodups['lat'] == 0].shape[0]) / \
-           df_output_nodups.shape[0]
-print(f'''\n{loc_perc:.2f}% of locations were matched to geocode data''')
-round1_perc = 100 * df_output_nodups[df_output_nodups['merge_round'] == 1].shape[0] / df_output_nodups.shape[0]
-print(f'''\n{round1_perc:.2f}% of locations were matched by classification and the exact name''')
-round2_perc = 100 * df_output_nodups[df_output_nodups['merge_round'] == 2].shape[0] / df_output_nodups.shape[0]
-print(f'''\n{round2_perc:.2f}% of locations were matched by classification and the simplified name''')
-round3_perc = 100 * df_output_nodups[df_output_nodups['merge_round'] == 3].shape[0] / df_output_nodups.shape[0]
-print(f'''\n{round3_perc:.2f}% of locations were matched by exact name only''')
-round4_perc = 100 * df_output_nodups[df_output_nodups['merge_round'] == 4].shape[0] / df_output_nodups.shape[0]
-print(f'''\n{round4_perc:.2f}% of locations were matched by simplified name only''')
-round5_perc = 100 * df_output_nodups[df_output_nodups['merge_round'] == 5].shape[0] / df_output_nodups.shape[0]
-print(
-    f'''\n{round5_perc:.2f}% of locations were matched by simplifying the name from both the census and meyers gazetter''')
-
-# import csv to data frame, edit it and output new data frame to csv
-df_merge_details = pd.read_excel(os.path.join(wdir, 'PrussianCensus1871/', 'MergeDetails.xlsx'))
-
-# if county has never been run, add new entry
-if df_merge_details[df_merge_details['county'] == county].empty:
-    new_county = df_merge_details.loc[0]
-    new_county = new_county.replace(new_county['county'], county)
-    df_merge_details = df_merge_details.append(new_county)
-
-df_merge_details.loc[df_merge_details['county'] == county, 'exact_match_perc'] = exact_match_perc
-df_merge_details.loc[df_merge_details['county'] == county, 'match_perc'] = match_perc
-df_merge_details.loc[df_merge_details['county'] == county, 'loc_perc'] = loc_perc
-df_merge_details.loc[df_merge_details['county'] == county, 'round1_perc'] = round1_perc
-df_merge_details.loc[df_merge_details['county'] == county, 'round2_perc'] = round2_perc
-df_merge_details.loc[df_merge_details['county'] == county, 'round3_perc'] = round3_perc
-df_merge_details.loc[df_merge_details['county'] == county, 'round4_perc'] = round4_perc
-df_merge_details.loc[df_merge_details['county'] == county, 'round5_perc'] = round5_perc
-
-lev_typo = ""
-for match in levenshtein_matches:
-    lev_typo += match[0] + " - " + match[1] + " | "
-df_merge_details.loc[df_merge_details['county'] == county, 'lev_typo'] = lev_typo
-
-df_merge_details.to_excel(os.path.join(wdir, 'PrussianCensus1871/', 'MergeDetails.xlsx'), index=False)
 
