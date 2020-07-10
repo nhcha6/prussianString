@@ -23,7 +23,7 @@ wdir = '/Users/nicolaschapman/Documents/PrussianStringMatching/Data/'
 
 # set county name to be run
 county = "Fraustadt"
-al_county = "Lissa"
+alt_county = "Lissa"
 
 """---------------------------------- DECLARE FUNCTIONS ----------------------------------"""
 
@@ -148,7 +148,7 @@ def lev_array(unmatched_gazetter_name, unmatched_census_name):
 
 """ ----------------------------------- LOAD GAZETTE DATA AND CLEAN FOR MERGE -----------------------------------"""
 
-def gazetter_data(county, alt_county=None)
+def gazetter_data(county, alt_county=None):
     # load in json file of (combinded) Gazetter entries
     # commented out as saving of df means it need only run once
 
@@ -179,7 +179,7 @@ def gazetter_data(county, alt_county=None)
         df_county = df[df['Kr'].str.startswith(county, na=False)  | df['AG'].str.startswith("Fraustadt", na=False)]
 
     # duplicated columns: keep only first
-    df_county = df_fraustadt.groupby(['id']).first().reset_index()
+    df_county = df_county.groupby(['id']).first().reset_index()
     # create column for merge
     df_county['merge_name'] = df_county['name'].str.strip()
     df_county['merge_name'] = df_county['merge_name'].str.lower()
@@ -258,8 +258,8 @@ def gazetter_data(county, alt_county=None)
 df_fraustadt = gazetter_data(county,alt_county)
 
 # split df_fraustadt into lat/long == null and lat/long!=null
-df_county_latlong = df_county[df_fraustadt['lat'] != 0]
-df_county_null = df_county[df_fraustadt['lat'] == 0]
+df_fraustadt_latlong = df_fraustadt[df_fraustadt['lat'] != 0]
+df_fraustadt_null = df_fraustadt[df_fraustadt['lat'] == 0]
 
 """ ----------------------------LOAD CLEANED CENSUS DATA AND APPLY STRING CLEANING -----------------------------------"""
 
