@@ -146,16 +146,16 @@ def lev_array(unmatched_gazetter_name,unmatched_census_name):
 
 # load in json file of (combinded) Gazetter entries
 # commented out as saving of df means it need only run once
-"""
-file_path = os.path.join(wdir, 'Matching', 'json_merge.json')
-with open(file_path, 'r', encoding="utf8") as json_file:  
-    data = json.load(json_file)
-    df = json_normalize(data)
-    print(f'The number of entries in Meyer Gazetter is: {df.shape[0]}')
 
-# save df to file so that we do not need to load json file again.
-df.to_pickle(wdir+"df_pickle")
-"""
+# file_path = os.path.join(wdir, 'Matching', 'json_merge.json')
+# with open(file_path, 'r', encoding="utf8") as json_file:
+#     data = json.load(json_file)
+#     df = json_normalize(data)
+#     print(f'The number of entries in Meyer Gazetter is: {df.shape[0]}')
+#
+# # save df to file so that we do not need to load json file again.
+# df.to_pickle(wdir+"df_pickle")
+
 
 # load saved data frame
 df = pd.read_pickle(wdir+"df_pickle")
@@ -517,7 +517,7 @@ df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on='lev_ma
 # add to output, but also write to output dedicated to matched made by levenshtein merge.
 # write file to disk
 lev_merge_df = pd.concat([df_lev_merge1, df_lev_merge2, df_lev_merge3, df_join], ignore_index=True)
-df_output = pd.concat([df_output, lev_merge_df], ignore_index=True)
+df_output = pd.concat([df_output, lev_merge_df], ignore_index=True, sort=False)
 
 # drop duplicates from output arbitratilly. !! Need a method.
 df_output_nodups = df_output.drop_duplicates(subset=['loc_id'], keep='last')

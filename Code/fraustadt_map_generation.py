@@ -1,17 +1,81 @@
 # file for producing a map of fraustadt data
 import numpy as np
-import pandas as pd
 import geopandas as gpd
 import geoplot as gplt
 import matplotlib.pyplot as plt
+import pandas as pd
+from tabulate import tabulate
 
-def plot_on_map(points_gdf, map_gdf):
-    # plot prussia base map and fraustadt points
-    fraustadt_plot = gplt.pointplot(points_gdf, hue='class', legend=True)
-    gplt.polyplot(map_gdf, ax=fraustadt_plot)
-    plt.show()
+def merge_STATA(master, using, how='outer', on=None, left_on=None, right_on=None, indicator=True,
+                suffixes=('_master','_using'), drop=None, keep=None, drop_merge=False):
+    """
+    function that imitates STATA's merge command and initializes most options of pandas DataFrame merge.
+    ----
+    Requirements: library "tabulate"
+    ----
+    Parameters:
+    master:        Master DataFrame
+    using:         Using DataFrame
+    how:           Type of merge to be performed: default is set to ‘outer‘ (as in STATA).
+                   Other options are equivalent to pd.merge, i.e. {‘left’, ‘right’, ‘inner’}.
+    on:            Column or index level names to join on. These must be found in both DataFrames.
+    left_on:       Column or index level names to join on in the left (master) DataFrame
+    right_on:      Column or index level names to join on in the right (using) DataFrame.
+    indicator:     If True (default) adds column “_merge” to output DataFrame with information
+                   on the source of each row.
+    suffixes:      Suffix to apply to overlapping column names in the left (master) and right
+                   (using) side. Default set to {‘_master’, ‘_master’}
+    drop:          If specified, rows labeled as either “left_only” (STATA: _merge==1),
+                   “right_only” (_merge==2), or “both” (_merge==3) are dropped after the merge.
+                   By default, no rows are dropped.
+    keep:          If specified, only rows labeled as either “left_only” (STATA: _merge==1),
+                   “right_only” (_merge==2), or “both” (_merge==3) are kept after the merge.
+                   By default, all rows are kept.
+    drop_merge:    Drop column _merge if True
+    ----
+    Return:        (Merged) Dataframe
 
-county = "FRAUSTADT"
+    """
+
+    if left_on == None and right_on==None: # if variables the same in both df
+        merge = master.merge(using, how=how, on=on, indicator=indicator, suffixes=suffixes)
+
+    if on == None:
+        merge = master.merge(using, how=how, left_on=left_on, right_on=right_on, indicator=indicator, suffixes=suffixes)
+
+    if left_on == None and right_on==None and on == None:
+        print("Either ‘on‘ or {‘left_on’, ‘right_on’} have to be defined")
+
+    if indicator == True:
+        # define variables needed for
+        result = merge["_merge"].value_counts()
+        not_matched_master = result["left_only"] # STATA: _merge==1
+        not_matched_using = result["right_only"] # STATA: _merge==2
+        matched = result["both"] # STATA: _merge==3
+        # define "STATA" merge table
+        table = [['not matched', '', not_matched_master + not_matched_using],
+                ['', 'from master', not_matched_master],
+                ['', 'from using', not_matched_using],
+                ['matched', '', matched]]
+        try:
+            print(tabulate(table, headers=['Result', '', '# of obs.'], tablefmt="fancy_grid"))
+        except:
+            print("Error: Merge table could not be compiled! Please import library tabulate")
+    if drop != None:
+        merge = merge[~merge['_merge'] == drop] # drop rows that equal drop expression
+        print("Drop if {}".format(drop))
+
+    if keep != None:
+        merge = merge[merge['_merge'] == keep] # keep rows that equal keep expression
+        print("Keep if {}".format(keep))
+
+    if drop_merge:
+        merge.drop(['_merge'], axis=1, inplace=True)
+
+    return merge
+
+county = "fraustadt"
+county_upper = county.upper()
 
 # set working directory path as location of data
 wdir = '/Users/nicolaschapman/Documents/PrussianStringMatching/Data/'
@@ -28,7 +92,7 @@ fraustadt_merged_df = pd.read_excel(wdir+"PrussianCensus1871/Fraustadt/Posen-Fra
 fraustadt_merged_df = fraustadt_merged_df[fraustadt_merged_df['lat']!=0]
 
 # extract county poly
-county_gdf = prussia_map[prussia_map['NAME']==county]
+county_gdf = prussia_map[prussia_map['NAME']==county_upper]
 county_gdf.index = [0]
 county_poly = county_gdf.loc[0,'geometry']
 
@@ -52,22 +116,49 @@ for i in range(20):
         index_in_county.add(j)
 print(f'''There are {len(index_in_county)} locations within the county''')
 
+# update to only keep the locations deemed to be within the county
+fraustadt_merged_df = fraustadt_merged_df.reindex(index_in_county)
+
 # add a little bit of noise to ensure that identical data points are split slightly
 fraustadt_merged_df['lat'] = np.random.normal(fraustadt_merged_df['lat'],0.01)
 fraustadt_merged_df['lng'] = np.random.normal(fraustadt_merged_df['lng'],0.01)
+
+# read in census data to plot something
+# census_df = pd.read_excel(wdir+"PrussianCensus1871/PrussianCensus1871.xlsx")
+# census_df.to_pickle(wdir+"census_df_pickle")
+
+# load saved data frame
+census_df = pd.read_pickle(wdir+"census_df_pickle")
+
+# extract county census data
+fraustadt_census_df = census_df[census_df['county']==county]
+data_headers = ['locname','type','pop_male', 'pop_female', 'pop_tot','protestant','catholic','other_christ', 'jew', 'other_relig', 'age_under_ten', 'literate', 'school_noinfo', 'illiterate']
+fraustadt_census_df = fraustadt_census_df[data_headers]
+
+# add to existing county data frame
+df_join = merge_STATA(fraustadt_merged_df, fraustadt_census_df, how='left', left_on=['orig_name','class'], right_on=['locname','type'])
+fraustadt_merged_df = df_join[df_join['_merge']=='both']
+fraustadt_merged_df.drop(columns=["_merge"], inplace=True)
+fraustadt_merged_df.drop(columns=["type"], inplace=True)
+fraustadt_merged_df.drop(columns=["locname"], inplace=True)
+fraustadt_merged_df.sort_values(by="loc_id", inplace=True)
+
+# convert all data to proportion of population
+for data in data_headers:
+    if data in ['pop_tot', 'type', 'locname']:
+        continue
+    fraustadt_merged_df[data] = fraustadt_merged_df[data]/fraustadt_merged_df['pop_tot']
 
 # convert to geo data frame
 fraustadt_merged_gdf = gpd.GeoDataFrame(fraustadt_merged_df, geometry=gpd.points_from_xy(fraustadt_merged_df.lng,fraustadt_merged_df.lat))
 fraustadt_merged_gdf.crs = {'init': 'epsg:4326'}
 
-# update to only keen the locations deemed to be within the county
-fraustadt_merged_gdf = fraustadt_merged_gdf.loc[index_in_county]
+# plot
+ax = gplt.voronoi(fraustadt_merged_gdf, clip=county_gdf.simplify(0.001))
+gplt.pointplot(fraustadt_merged_gdf, ax=ax)
 
-#plot_on_map(fraustadt_merged_gdf, prussia_map)
-
-ax = gplt.voronoi(fraustadt_merged_gdf, hue='class', clip=county_gdf.simplify(0.001))
-#gplt.pointplot(fraustadt_merged_gdf, ax=ax)
-
+gplt.voronoi(fraustadt_merged_gdf, hue='protestant', clip=county_gdf.simplify(0.001), legend = True)
+gplt.voronoi(fraustadt_merged_gdf, hue='literate', clip=county_gdf.simplify(0.001), legend = True)
 
 plt.show()
 
