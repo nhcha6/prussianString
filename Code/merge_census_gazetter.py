@@ -255,6 +255,12 @@ def gazetter_data(county, alt_county=None):
     # print(df_fraustadt[['id', 'name_gazetter', 'lat', 'lng','Type', 'merge_name', 'class_gazetter']].head())
     return df_county
 
+# df_county = gazetter_data(county,alt_county)
+#
+# # split df_fraustadt into lat/long == null and lat/long!=null
+# df_county_latlong = df_county[df_county['lat'] != 0]
+# df_county_null = df_county[df_county['lat'] == 0]
+
 df_fraustadt = gazetter_data(county,alt_county)
 
 # split df_fraustadt into lat/long == null and lat/long!=null
@@ -268,19 +274,23 @@ df_fraustadt_null = df_fraustadt[df_fraustadt['lat'] == 0]
 # Improve on split pattern for locations with appendix to accomodate "all" cases:
 # `pattern = \sa\/|\sunt\s|\sa\s|\sunterm\s|\si\/|\si\s|\sb\s|\sin\s|\sbei\s|\sam\s|\san\s`
 
+# load saved data frame
+df_census = pd.read_pickle(wdir+"census_df_pickle")
+df_master = df_census[df_census['county']==county.lower()]
+
 # upload cleaned data
-df_master = pd.read_excel(os.path.join(wdir, 'PrussianCensus1871/Fraustadt', 'Posen-Fraustadt-kreiskey-134.xlsx'))
+#df_master = pd.read_excel(os.path.join(wdir, 'PrussianCensus1871/Fraustadt', 'Posen-Fraustadt-kreiskey-134.xlsx'))
 # rename columns
-df_master.rename(columns={"posen": "province",
-                          "134": "province_id",
-                          "fraustadt": "district",
-                          'Unnamed: 3': "class",
-                          "102": "type_id",
-                          "Unnamed: 5": "loc_id",
-                          "XIV. Kreis Fraustadt": "orig_name"
+df_master.rename(columns={"regbez": "province",
+                          "kreiskey1871": "province_id",
+                          "county": "district",
+                          'type': "class",
+                          "page": "type_id",
+                          "running_number": "loc_id",
+                          "locname": "orig_name"
                           }, inplace=True)
 # drop rows with "a) Stadtgemeinden" and "b) Landgemeinden" as these are headings and not data
-df_master = df_master[~df_master['orig_name'].isin(['a) Stadtgemeinden', 'b) Landgemeinden', "c) Gutsbezirke"])]
+#df_master = df_master[~df_master['orig_name'].isin(['a) Stadtgemeinden', 'b) Landgemeinden', "c) Gutsbezirke"])]
 # now we need to clean location names
 df_master['name'] = df_master['orig_name']
 # extract alternative writing of location name: in parantheses after =
