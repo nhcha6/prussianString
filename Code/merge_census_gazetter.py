@@ -255,11 +255,207 @@ def gazetter_data(county, alt_county=None):
     # print(df_fraustadt[['id', 'name_gazetter', 'lat', 'lng','Type', 'merge_name', 'class_gazetter']].head())
     return df_county
 
-# df_county = gazetter_data(county,alt_county)
+""" ----------------------------LOAD CLEANED CENSUS DATA AND APPLY STRING CLEANING -----------------------------------"""
+def census_data(county):
+    # Load Posen-Fraustadt-kreiskey-134.xlsx` file we want to match with Gazetter entries. Clean file before merge!
+    # !! To-Do: Improve string split Pattern
+    # Improve on split pattern for locations with appendix to accomodate "all" cases:
+    # `pattern = \sa\/|\sunt\s|\sa\s|\sunterm\s|\si\/|\si\s|\sb\s|\sin\s|\sbei\s|\sam\s|\san\s`
+
+    # load saved data frame
+    df_census = pd.read_pickle(wdir+"census_df_pickle")
+    df_county = df_census[df_census['county']==county.lower()]
+
+    # upload cleaned data
+    #df_master = pd.read_excel(os.path.join(wdir, 'PrussianCensus1871/Fraustadt', 'Posen-Fraustadt-kreiskey-134.xlsx'))
+    # rename columns
+    df_county.rename(columns={"regbez": "province",
+                              "kreiskey1871": "province_id",
+                              "county": "district",
+                              'type': "class",
+                              "page": "type_id",
+                              "running_number": "loc_id",
+                              "locname": "orig_name"
+                              }, inplace=True)
+
+    # now we need to clean location names
+    df_county['name'] = df_county['orig_name']
+    # extract alternative writing of location name: in parantheses after =
+    df_county['alt_name'] = df_county['name'].str.extract(r'.+\(=(.*)\).*', expand=True)
+    # extract alternative name without appendixes such as bei in
+    df_county['suffix'] = df_county['name'].str.extract(r'.+\(([a-zA-Z\.-]+)\).*', expand=True)
+    # replace '-' with "\s" in suffix, 'niederr' with 'nieder'  (and special case nied. with nieder)
+    df_county['suffix'] = df_county['suffix'].str.replace(r'-', ' ')
+    df_county['suffix'] = df_county['suffix'].str.replace('Nied.', 'Nieder')
+    df_county['suffix'] = df_county['suffix'].str.replace('Niederr', 'Nieder')
+    # drop substring after parantheses or ',' from name
+    df_county['name'] = df_county['name'].str.replace(r'\(.+', '')
+    df_county['name'] = df_county['name'].str.replace(r',.+', '')
+    # account for cases with appendixes such as Neuguth bei Reisen and Neuguth bei Fraustadt
+    pattern = '\sa\/|\sunt\s|\sa\s|\sunterm\s|\si\/|\si\s|\sb\s|\sin\s|\sbei\s|\sam\s|\san\s'
+    df_county[['temp_name', 'appendix']] = df_county['name'].str.split(pattern, expand=True)
+    # attribute more restrictive name (i.e. with appendix) to `alt_name` if there exists an appendix
+    df_county.loc[df_county['appendix'].notnull(), 'alt_name'] = df_county.loc[df_county['appendix'].notnull(), 'name']
+    # attribute more restrictive name (i.e. with appendix) to `alt_name` if there exists an appendix
+    df_county.loc[df_county['appendix'].notnull(), 'name'] = df_county.loc[df_county['appendix'].notnull(), 'temp_name']
+    df_county.drop(columns=["temp_name"], inplace=True)
+
+    # strip all [name, alt_name, suffix] of white spaces
+    # df_master.replace(np.nan, '', regex=True)
+    for c in ['name', 'alt_name', 'suffix', 'appendix']:
+        df_county[c] = df_county[c].str.strip()
+        df_county[c] = df_county[c].str.lower()
+
+    # concate 'suffix' and 'name'
+    df_county.loc[df_county['suffix'].notnull(), 'alt_name'] = df_county.loc[
+        df_county['suffix'].notnull(), ['suffix', 'name']].apply(lambda x: ' '.join(x), axis=1)
+    print(f'Number of locations in master file equals {df_county.shape[0]}')
+
+    return df_county
+
+
+"""----------------------------------- MERGE THE TWO DATA FRAMES -----------------------------------"""
+def merge_data(df_county_gaz, df_county_cens):
+
+    # split df_fraustadt into lat/long == null and lat/long!=null
+    df_county_gaz_latlong = df_county_gaz[df_county_gaz['lat'] != 0]
+    df_county_gaz_null = df_county_gaz[df_county_gaz['lat'] == 0]
+
+
+    # Now let's try out the merege in a 4-step procedure. This procedure is iterated through twice, once for gazetter entries
+    # that have a valid lat-long, and one for entries that do not.
+    # 1. merge on the "more restrivtive" `alt_name` that takes into considerations suffixes such as "Nieder" and the `class` label
+    # 2. "non-matched" locations will be considered in a second merge based on the location `name` which is the location name without any suffixes and the `class` label
+    # 3. "non-matched" locations will be considered in a third merge based on "more restrivtive" `alt_name` **but not** on `class` label
+    # 4. "non-matched" locations will be considered in a fourth merge based on `name` **but not** on `class` label
+    # 5. "non-matched" locations will be considered in a fourth merge based only on the most basic form of both names.
+
+    #  1.)
+    columns = list(df_county_cens.columns)
+    df_county_gaz_latlong = df_county_gaz_latlong.assign(merge_round=1)
+    print("Merging if detailed census name and class match a gazetter entry with location data")
+    df_join = merge_STATA(df_county_cens, df_county_gaz_latlong, how='left', left_on=['alt_name', 'class'],
+                          right_on=['merge_name', 'class_gazetter'])
+    # set aside merged locations
+    df_merged1 = df_join[df_join['_merge'] == 'both']
+    # select locations without a match
+    df_nomatch = df_join[df_join['_merge'] == 'left_only']
+    df_nomatch = df_nomatch[columns]
+
+    # 2.)
+    df_county_gaz_latlong = df_county_gaz_latlong.assign(merge_round=2)
+    print("Merging if simplified census name and class match a gazetter entry with location data")
+    df_join = merge_STATA(df_nomatch, df_county_gaz_latlong, how='left', left_on=['name', 'class'],
+                          right_on=['merge_name', 'class_gazetter'])
+    # set aside merged locations
+    df_merged2 = df_join[df_join['_merge'] == 'both']
+    # select locations without a match
+    df_nomatch = df_join[df_join['_merge'] == 'left_only']
+    df_nomatch = df_nomatch[columns]
+
+    # 3.)
+    df_county_gaz_latlong = df_county_gaz_latlong.assign(merge_round=3)
+    print("Merging if detailed census name matches a gazetter entry with location data")
+    df_join = merge_STATA(df_nomatch, df_county_gaz_latlong, how='left', left_on='alt_name', right_on='merge_name')
+    # set aside merged locations
+    df_merged3 = df_join[df_join['_merge'] == 'both']
+    # select locations without a match
+    df_nomatch = df_join[df_join['_merge'] == 'left_only']
+    df_nomatch = df_nomatch[columns]
+
+    # 4.)
+    df_county_gaz_latlong = df_county_gaz_latlong.assign(merge_round=4)
+    print("Merging if simplified census name matches a gazetter entry with location data")
+    df_join = merge_STATA(df_nomatch, df_county_gaz_latlong, how='left', left_on='name', right_on='merge_name')
+    # set aside merged locations
+    df_merged4 = df_join[df_join['_merge'] == 'both']
+    # select locations without a match
+    df_nomatch = df_join[df_join['_merge'] == 'left_only']
+    df_nomatch = df_nomatch[columns]
+
+    # 5.)
+    df_county_gaz_latlong = df_county_gaz_latlong.assign(merge_round=5)
+    print("Merging if simplified census name matches simplified gazetter entry with location data")
+    df_join = merge_STATA(df_nomatch, df_county_gaz_latlong, how='left', left_on='name', right_on='base_merge_name')
+    # set aside merged locations
+    df_merged5 = df_join[df_join['_merge'] == 'both']
+    # select locations without a match
+    df_nomatch = df_join[df_join['_merge'] == 'left_only']
+    df_nomatch = df_nomatch[columns]
+
+    # Repeat for gazetter entries with null lat-long just for clarity of a match
+    #  1.)
+    df_county_gaz_null = df_county_gaz_null.assign(merge_round=1)
+    print("Merging if detailed census name and class match a gazetter entry WITHOUT location data")
+    df_join = merge_STATA(df_nomatch, df_county_gaz_null, how='left', left_on=['alt_name', 'class'],
+                          right_on=['merge_name', 'class_gazetter'])
+    # set aside merged locations
+    df_merged6 = df_join[df_join['_merge'] == 'both']
+    # select locations without a match
+    df_nomatch = df_join[df_join['_merge'] == 'left_only']
+    df_nomatch = df_nomatch[columns]
+
+    # 2.)
+    df_county_gaz_null = df_county_gaz_null.assign(merge_round=2)
+    print("Merging if simplified census name and class match a gazetter entry WITHOUT location data")
+    df_join = merge_STATA(df_nomatch, df_county_gaz_null, how='left', left_on=['name', 'class'],
+                          right_on=['merge_name', 'class_gazetter'])
+    # set aside merged locations
+    df_merged7 = df_join[df_join['_merge'] == 'both']
+    # select locations without a match
+    df_nomatch = df_join[df_join['_merge'] == 'left_only']
+    df_nomatch = df_nomatch[columns]
+
+    # 3.)
+    df_county_gaz_null = df_county_gaz_null.assign(merge_round=3)
+    print("Merging if detailed census name matches a gazetter entry WITHOUT location data")
+    df_join = merge_STATA(df_nomatch, df_county_gaz_null, how='left', left_on='alt_name', right_on='merge_name')
+    # set aside merged locations
+    df_merged8 = df_join[df_join['_merge'] == 'both']
+    # select locations without a match
+    df_nomatch = df_join[df_join['_merge'] == 'left_only']
+    df_nomatch = df_nomatch[columns]
+
+    # 4.)
+    df_county_gaz_null = df_county_gaz_null.assign(merge_round=4)
+    print("Merging if simplified census name matches a gazetter entry WITHOUT location data")
+    df_join = merge_STATA(df_nomatch, df_county_gaz_null, how='left', left_on='name', right_on='merge_name')
+    # set aside merged locations
+    df_merged9 = df_join[df_join['_merge'] == 'both']
+    # select locations without a match
+    df_nomatch = df_join[df_join['_merge'] == 'left_only']
+    df_nomatch = df_nomatch[columns]
+
+    # 5.)
+    df_county_gaz_null = df_county_gaz_null.assign(merge_round=5)
+    print("Merging if simplified census name matches simlified gazetter entry WITHOUT location data")
+    df_join = merge_STATA(df_nomatch, df_county_gaz_null, how='left', left_on='name', right_on='base_merge_name')
+    # set aside merged locations
+    df_merged10 = df_join[df_join['_merge'] == 'both']
+
+    # concat all dataFrames Dataframes
+    df_combined = pd.concat(
+        [df_merged1, df_merged2, df_merged3, df_merged4, df_merged5, df_merged6, df_merged7, df_merged8, df_merged9,
+         df_merged10], ignore_index=True)
+
+    # How well did we do?
+    # Note: We now do not consider duplicates but compare to the original excel-file entries
+    exact_match_perc = (df_county_gaz_null.shape[0] - df_join[df_join["_merge"] == "left_only"].shape[0]) / df_county_gaz_null.shape[0] * 100
+
+    # !! To-Do: Eliminate Duplicates: duplicates currently only occur when two matches are found on the same round of
+    # a merge. Gazetter entries without location data are only considered for the municipalities in the census that do not
+    # find a match that has location data.
+
+    return df_combined, exact_match_perc, df_join
+
+
+# df_county_gaz = gazetter_data(county,alt_county)
 #
 # # split df_fraustadt into lat/long == null and lat/long!=null
-# df_county_latlong = df_county[df_county['lat'] != 0]
-# df_county_null = df_county[df_county['lat'] == 0]
+# df_county_gaz_latlong = df_county[df_county['lat'] != 0]
+# df_county_gaz_null = df_county[df_county['lat'] == 0]
+#
+# df_county_cens = census_data(county)
 
 df_fraustadt = gazetter_data(county,alt_county)
 
@@ -267,195 +463,15 @@ df_fraustadt = gazetter_data(county,alt_county)
 df_fraustadt_latlong = df_fraustadt[df_fraustadt['lat'] != 0]
 df_fraustadt_null = df_fraustadt[df_fraustadt['lat'] == 0]
 
-""" ----------------------------LOAD CLEANED CENSUS DATA AND APPLY STRING CLEANING -----------------------------------"""
+df_master = census_data(county)
 
-# Load Posen-Fraustadt-kreiskey-134.xlsx` file we want to match with Gazetter entries. Clean file before merge!
-# !! To-Do: Improve string split Pattern
-# Improve on split pattern for locations with appendix to accomodate "all" cases:
-# `pattern = \sa\/|\sunt\s|\sa\s|\sunterm\s|\si\/|\si\s|\sb\s|\sin\s|\sbei\s|\sam\s|\san\s`
-
-# load saved data frame
-df_census = pd.read_pickle(wdir+"census_df_pickle")
-df_master = df_census[df_census['county']==county.lower()]
-
-# upload cleaned data
-#df_master = pd.read_excel(os.path.join(wdir, 'PrussianCensus1871/Fraustadt', 'Posen-Fraustadt-kreiskey-134.xlsx'))
-# rename columns
-df_master.rename(columns={"regbez": "province",
-                          "kreiskey1871": "province_id",
-                          "county": "district",
-                          'type': "class",
-                          "page": "type_id",
-                          "running_number": "loc_id",
-                          "locname": "orig_name"
-                          }, inplace=True)
-# drop rows with "a) Stadtgemeinden" and "b) Landgemeinden" as these are headings and not data
-#df_master = df_master[~df_master['orig_name'].isin(['a) Stadtgemeinden', 'b) Landgemeinden', "c) Gutsbezirke"])]
-# now we need to clean location names
-df_master['name'] = df_master['orig_name']
-# extract alternative writing of location name: in parantheses after =
-df_master['alt_name'] = df_master['name'].str.extract(r'.+\(=(.*)\).*', expand=True)
-# extract alternative name without appendixes such as bei in
-df_master['suffix'] = df_master['name'].str.extract(r'.+\(([a-zA-Z\.-]+)\).*', expand=True)
-# replace '-' with "\s" in suffix, 'niederr' with 'nieder'  (and special case nied. with nieder)
-df_master['suffix'] = df_master['suffix'].str.replace(r'-', ' ')
-df_master['suffix'] = df_master['suffix'].str.replace('Nied.', 'Nieder')
-df_master['suffix'] = df_master['suffix'].str.replace('Niederr', 'Nieder')
-# drop substring after parantheses or ',' from name
-df_master['name'] = df_master['name'].str.replace(r'\(.+', '')
-df_master['name'] = df_master['name'].str.replace(r',.+', '')
-# account for cases with appendixes such as Neuguth bei Reisen and Neuguth bei Fraustadt
-pattern = '\sa\/|\sunt\s|\sa\s|\sunterm\s|\si\/|\si\s|\sb\s|\sin\s|\sbei\s|\sam\s|\san\s'
-df_master[['temp_name', 'appendix']] = df_master['name'].str.split(pattern, expand=True)
-# attribute more restrictive name (i.e. with appendix) to `alt_name` if there exists an appendix
-df_master.loc[df_master['appendix'].notnull(), 'alt_name'] = df_master.loc[df_master['appendix'].notnull(), 'name']
-# attribute more restrictive name (i.e. with appendix) to `alt_name` if there exists an appendix
-df_master.loc[df_master['appendix'].notnull(), 'name'] = df_master.loc[df_master['appendix'].notnull(), 'temp_name']
-df_master.drop(columns=["temp_name"], inplace=True)
-# strip all [name, alt_name, suffix] of white spaces
-# df_master.replace(np.nan, '', regex=True)
-for c in ['name', 'alt_name', 'suffix', 'appendix']:
-    df_master[c] = df_master[c].str.strip()
-    df_master[c] = df_master[c].str.lower()
-# concate 'suffix' and 'name'
-df_master.loc[df_master['suffix'].notnull(), 'alt_name'] = df_master.loc[
-    df_master['suffix'].notnull(), ['suffix', 'name']].apply(lambda x: ' '.join(x), axis=1)
-print(f'Number of locations in master file equals {df_master.shape[0]}')
-# Check if all went to plan for the distribution of appendices and suffices
-# print(df_master[df_master['appendix'].notnull()].head())
-# print(df_master[df_master['suffix'].notnull()].head())
-
-
-"""----------------------------------- MERGE THE TWO DATA FRAMES -----------------------------------"""
-
-# Now let's try out the merege in a 4-step procedure. This procedure is iterated through twice, once for gazetter entries
-# that have a valid lat-long, and one for entries that do not.
-# 1. merge on the "more restrivtive" `alt_name` that takes into considerations suffixes such as "Nieder" and the `class` label
-# 2. "non-matched" locations will be considered in a second merge based on the location `name` which is the location name without any suffixes and the `class` label
-# 3. "non-matched" locations will be considered in a third merge based on "more restrivtive" `alt_name` **but not** on `class` label
-# 4. "non-matched" locations will be considered in a fourth merge based on `name` **but not** on `class` label
-# 5. "non-matched" locations will be considered in a fourth merge based only on the most basic form of both names.
-
-#  1.)
-columns = list(df_master.columns)
-df_fraustadt_latlong = df_fraustadt_latlong.assign(merge_round=1)
-print("Merging if detailed census name and class match a gazetter entry with location data")
-df_join = merge_STATA(df_master, df_fraustadt_latlong, how='left', left_on=['alt_name', 'class'],
-                      right_on=['merge_name', 'class_gazetter'])
-# set aside merged locations
-df_merged1 = df_join[df_join['_merge'] == 'both']
-# select locations without a match
-df_nomatch = df_join[df_join['_merge'] == 'left_only']
-df_nomatch = df_nomatch[columns]
-
-# 2.)
-df_fraustadt_latlong = df_fraustadt_latlong.assign(merge_round=2)
-print("Merging if simplified census name and class match a gazetter entry with location data")
-df_join = merge_STATA(df_nomatch, df_fraustadt_latlong, how='left', left_on=['name', 'class'],
-                      right_on=['merge_name', 'class_gazetter'])
-# set aside merged locations
-df_merged2 = df_join[df_join['_merge'] == 'both']
-# select locations without a match
-df_nomatch = df_join[df_join['_merge'] == 'left_only']
-df_nomatch = df_nomatch[columns]
-
-# 3.)
-df_fraustadt_latlong = df_fraustadt_latlong.assign(merge_round=3)
-print("Merging if detailed census name matches a gazetter entry with location data")
-df_join = merge_STATA(df_nomatch, df_fraustadt_latlong, how='left', left_on='alt_name', right_on='merge_name')
-# set aside merged locations
-df_merged3 = df_join[df_join['_merge'] == 'both']
-# select locations without a match
-df_nomatch = df_join[df_join['_merge'] == 'left_only']
-df_nomatch = df_nomatch[columns]
-
-# 4.)
-df_fraustadt_latlong = df_fraustadt_latlong.assign(merge_round=4)
-print("Merging if simplified census name matches a gazetter entry with location data")
-df_join = merge_STATA(df_nomatch, df_fraustadt_latlong, how='left', left_on='name', right_on='merge_name')
-# set aside merged locations
-df_merged4 = df_join[df_join['_merge'] == 'both']
-# select locations without a match
-df_nomatch = df_join[df_join['_merge'] == 'left_only']
-df_nomatch = df_nomatch[columns]
-
-# 5.)
-df_fraustadt_latlong = df_fraustadt_latlong.assign(merge_round=5)
-print("Merging if simplified census name matches simplified gazetter entry with location data")
-df_join = merge_STATA(df_nomatch, df_fraustadt_latlong, how='left', left_on='name', right_on='base_merge_name')
-# set aside merged locations
-df_merged5 = df_join[df_join['_merge'] == 'both']
-# select locations without a match
-df_nomatch = df_join[df_join['_merge'] == 'left_only']
-df_nomatch = df_nomatch[columns]
-
-# Repeat for gazetter entries with null lat-long just for clarity of a match
-#  1.)
-df_fraustadt_null = df_fraustadt_null.assign(merge_round=1)
-print("Merging if detailed census name and class match a gazetter entry WITHOUT location data")
-df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on=['alt_name', 'class'],
-                      right_on=['merge_name', 'class_gazetter'])
-# set aside merged locations
-df_merged6 = df_join[df_join['_merge'] == 'both']
-# select locations without a match
-df_nomatch = df_join[df_join['_merge'] == 'left_only']
-df_nomatch = df_nomatch[columns]
-
-# 2.)
-df_fraustadt_null = df_fraustadt_null.assign(merge_round=2)
-print("Merging if simplified census name and class match a gazetter entry WITHOUT location data")
-df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on=['name', 'class'],
-                      right_on=['merge_name', 'class_gazetter'])
-# set aside merged locations
-df_merged7 = df_join[df_join['_merge'] == 'both']
-# select locations without a match
-df_nomatch = df_join[df_join['_merge'] == 'left_only']
-df_nomatch = df_nomatch[columns]
-
-# 3.)
-df_fraustadt_null = df_fraustadt_null.assign(merge_round=3)
-print("Merging if detailed census name matches a gazetter entry WITHOUT location data")
-df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on='alt_name', right_on='merge_name')
-# set aside merged locations
-df_merged8 = df_join[df_join['_merge'] == 'both']
-# select locations without a match
-df_nomatch = df_join[df_join['_merge'] == 'left_only']
-df_nomatch = df_nomatch[columns]
-
-# 4.)
-df_fraustadt_null = df_fraustadt_null.assign(merge_round=4)
-print("Merging if simplified census name matches a gazetter entry WITHOUT location data")
-df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on='name', right_on='merge_name')
-# set aside merged locations
-df_merged9 = df_join[df_join['_merge'] == 'both']
-# select locations without a match
-df_nomatch = df_join[df_join['_merge'] == 'left_only']
-df_nomatch = df_nomatch[columns]
-
-# 5.)
-df_fraustadt_null = df_fraustadt_null.assign(merge_round=5)
-print("Merging if simplified census name matches simlified gazetter entry WITHOUT location data")
-df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on='name', right_on='base_merge_name')
-# set aside merged locations
-df_merged10 = df_join[df_join['_merge'] == 'both']
-
-# concat all dataFrames Dataframes
-df_output = pd.concat(
-    [df_merged1, df_merged2, df_merged3, df_merged4, df_merged5, df_merged6, df_merged7, df_merged8, df_merged9,
-     df_merged10], ignore_index=True)
-
-# How well did we do?
-# Note: We now do not consider duplicates but compare to the original excel-file entries
-exact_match_perc = (df_master.shape[0] - df_join[df_join["_merge"] == "left_only"].shape[0]) / df_master.shape[0] * 100
-
-# !! To-Do: Eliminate Duplicates: duplicates currently only occur when two matches are found on the same round of
-# a merge. Gazetter entries without location data are only considered for the municipalities in the census that do not
-# find a match that has location data.
+df_output, exact_match_perc, df_join = merge_data(df_fraustadt, df_master)
 
 """---------------------------- ANALYSIS OF UNMATCHED ENTRIES - LEVENSHTEIN DISTANCE ---------------------------"""
 
 # Meyers Gazetter: Which locations were not matched?
 # Finally, we would like to know which Gazetter entries are not matched.
+columns = list(df_master.columns)
 id_gazetter = set(df_fraustadt['id'].values)
 id_merge = set(df_output['id'].values)
 diff = id_gazetter - id_merge
