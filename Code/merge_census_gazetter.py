@@ -23,9 +23,9 @@ wdir = '/Users/nicolaschapman/Documents/PrussianStringMatching/Data/'
 
 # set county name to be run
 county = "Fraustadt"
+al_county = "Lissa"
 
 """---------------------------------- DECLARE FUNCTIONS ----------------------------------"""
-
 
 def merge_STATA(master, using, how='outer', on=None, left_on=None, right_on=None, indicator=True,
                 suffixes=('_master', '_using'), drop=None, keep=None, drop_merge=False):
@@ -148,127 +148,118 @@ def lev_array(unmatched_gazetter_name, unmatched_census_name):
 
 """ ----------------------------------- LOAD GAZETTE DATA AND CLEAN FOR MERGE -----------------------------------"""
 
-#def gazetter_data(county)
-# load in json file of (combinded) Gazetter entries
-# commented out as saving of df means it need only run once
+def gazetter_data(county, alt_county=None)
+    # load in json file of (combinded) Gazetter entries
+    # commented out as saving of df means it need only run once
 
-# file_path = os.path.join(wdir, 'Matching', 'json_merge.json')
-# with open(file_path, 'r', encoding="utf8") as json_file:
-#     data = json.load(json_file)
-#     df = json_normalize(data)
-#     print(f'The number of entries in Meyer Gazetter is: {df.shape[0]}')
-#
-# # save df to file so that we do not need to load json file again.
-# df.to_pickle(wdir+"df_pickle")
+    # file_path = os.path.join(wdir, 'Matching', 'json_merge.json')
+    # with open(file_path, 'r', encoding="utf8") as json_file:
+    #     data = json.load(json_file)
+    #     df = json_normalize(data)
+    #     print(f'The number of entries in Meyer Gazetter is: {df.shape[0]}')
+    #
+    # # save df to file so that we do not need to load json file again.
+    # df.to_pickle(wdir+"df_pickle")
 
+    # load saved data frame
+    df = pd.read_pickle(wdir + "df_pickle")
+    print(f'The number of entries in Meyer Gazetter is: {df.shape[0]}')
 
-# load saved data frame
-df = pd.read_pickle(wdir + "df_pickle")
-print(f'The number of entries in Meyer Gazetter is: {df.shape[0]}')
+    # First, let's see how many cities have Fraustadt in any of the columns (drop duplicates created by this technique).
+    # next check which rows have Fraustadt in any of the "abbreviation columns"
+    # search for lissa too, because fraustadt was split to Lissa and Frastadt after the census but before the Meyers
+    # Gazetter data was compiled.
+    # two methods for extraction are seen, one that uses only the Kr column for the desired country and one that searches
+    # for any exact reference to the county in any column
+    # df_fraustadt = df[(df.values=="Fraustadt")|(df.values=="Lissa")]
+    if alt_county != None:
+        df_county = df[df['Kr'].str.startswith(county, na=False) | df['Kr'].str.startswith(alt_county, na=False) | df[
+        'AG'].str.startswith("Fraustadt", na=False) | df['AG'].str.startswith("Lissa", na=False)]
+    else:
+        df_county = df[df['Kr'].str.startswith(county, na=False)  | df['AG'].str.startswith("Fraustadt", na=False)]
 
-# First check if `Fraustadt` was indeed successfully scraped
-# print(df[df['id']=='10505026'])
+    # duplicated columns: keep only first
+    df_county = df_fraustadt.groupby(['id']).first().reset_index()
+    # create column for merge
+    df_county['merge_name'] = df_county['name'].str.strip()
+    df_county['merge_name'] = df_county['merge_name'].str.lower()
+    print(f'The number of locations in the Gazetter with "{county}" in any of their columns is {df_county.shape[0]}')
+    # rename name column to indicate gazetter
+    df_county.rename(columns={'name': 'name_gazetter'}, inplace=True)
 
-# First, let's see how many cities have Fraustadt in any of the columns (drop duplicates created by this technique).
-# next check which rows have Fraustadt in any of the "abbreviation columns"
-# search for lissa too, because fraustadt was split to Lissa and Frastadt after the census but before the Meyers
-# Gazetter data was compiled.
-# two methods for extraction are seen, one that uses only the Kr column for the desired country and one that searches
-# for any exact reference to the county in any column
-# df_fraustadt = df[(df.values=="Fraustadt")|(df.values=="Lissa")]
-df_fraustadt = df[df['Kr'].str.startswith("Fraustadt", na=False) | df['Kr'].str.startswith("Lissa", na=False) | df[
-    'AG'].str.startswith("Fraustadt", na=False) | df['AG'].str.startswith("Lissa", na=False)]
-# df_fraustadt = pd.concat([df_fraustadt, ], ignore_index=True)
+    # extract base name, eg: Zedlitz from Nieder Zedlitz
+    df_county['base_merge_name'] = df_county['merge_name'].str.extract(r'.*\s(.*)', expand=True)
 
-
-# !! To-Do: Improve "Landkreis" Selection
-# Find a better way to select the correct "Landkreis". For instance, we want to account for cases as [
-# Storchnest](https://www.meyersgaz.org/place/20888081) for which the `Kr` and `AG` is `Lissa B. Posen` and not
-# `Lissa`. Need to work with substrings for value selection!
-# Gazetter entries are added to df_fraustadt if the first word of the 'Kr' column is Fraustadt or Lissa. Added 8 new
-# matches
-
-# duplicated columns: keep only first
-df_fraustadt = df_fraustadt.groupby(['id']).first().reset_index()
-# create column for merge
-df_fraustadt['merge_name'] = df_fraustadt['name'].str.strip()
-df_fraustadt['merge_name'] = df_fraustadt['merge_name'].str.lower()
-print(f'The number of locations in the Gazetter with "Fraustadt" in any of their columns is {df_fraustadt.shape[0]}')
-# rename name column to indicate gazetter
-df_fraustadt.rename(columns={'name': 'name_gazetter'}, inplace=True)
-# sanity check if Fraustadt is still present
-df_fraustadt[df_fraustadt['id'] == '10505026']
-
-# extract base name, eg: Zedlitz from Nieder Zedlitz
-df_fraustadt['base_merge_name'] = df_fraustadt['merge_name'].str.extract(r'.*\s(.*)', expand=True)
-
-# Let's define a dictionary to match the [Meyers gazetter types](https://www.familysearch.org/wiki/en/Abbreviation_Table_for_Meyers_Orts_und_Verkehrs_Lexikon_Des_Deutschen_Reichs) to the three classes `stadt, landgemeinde, gutsbezirk`.
-dictionary_types = {"HptSt.": "stadt",  # Hauptstadt
-                    "KrSt.": "stadt",  # Kreisstadt
-                    "St.": "stadt",  # Stadt
-                    "D.": "landgemeinde",  # Dorf
-                    "Dr.": "landgemeinde",  # Dörfer
-                    "Rg.": "landgemeinde",  # Rittergut
-                    "G.": "gutsbezirk",  # Gutsbezirk (but also Gericht)
-                    "FG": "gutsbezirk",  # Forstgutsbezirk
-                    "Gutsb.": "gutsbezirk"  # Gutsbezirk
-                    }
+    # Let's define a dictionary to match the [Meyers gazetter types](https://www.familysearch.org/wiki/en/Abbreviation_Table_for_Meyers_Orts_und_Verkehrs_Lexikon_Des_Deutschen_Reichs) to the three classes `stadt, landgemeinde, gutsbezirk`.
+    dictionary_types = {"HptSt.": "stadt",  # Hauptstadt
+                        "KrSt.": "stadt",  # Kreisstadt
+                        "St.": "stadt",  # Stadt
+                        "D.": "landgemeinde",  # Dorf
+                        "Dr.": "landgemeinde",  # Dörfer
+                        "Rg.": "landgemeinde",  # Rittergut
+                        "G.": "gutsbezirk",  # Gutsbezirk (but also Gericht)
+                        "FG": "gutsbezirk",  # Forstgutsbezirk
+                        "Gutsb.": "gutsbezirk"  # Gutsbezirk
+                        }
 
 
-# Next we need to create a column that entails the "translated" type.
-# Note: I rely on the follwing order `stadt > landgemeinde > gutsbezirk` for classification. For instance, if we have
-# a location that has the types `G.` and `D.`, I will attribute the type `landgemeinde` to the location. Also note that
-# `stadt > landgemeinde > gutsbezirk` is the reverse alpahbetical ordering!
-def check_type(string, dictionary=dictionary_types):
+    # Next we need to create a column that entails the "translated" type.
+    # Note: I rely on the follwing order `stadt > landgemeinde > gutsbezirk` for classification. For instance, if we have
+    # a location that has the types `G.` and `D.`, I will attribute the type `landgemeinde` to the location. Also note that
+    # `stadt > landgemeinde > gutsbezirk` is the reverse alpahbetical ordering!
+    def check_type(string, dictionary=dictionary_types):
+        """
+        This is a helper that takes the type dictionary and returns
+        the correct class of the string.
+        """
+        matches = []
+        # get all matches of string
+        for key in list(dictionary.keys()):
+            regex = key.replace(".", "\.").lower()
+            # only tag "G." if it is not preceeded by an "r" (i.e. if "Rg.")
+            if key == "G.":
+                regex = '(?<!r)' + regex
+            match = re.search(regex, string.lower())
+            if match:
+                matches.append(key)
+                # if there exists a match return the correct class label (in accordance with ordering)
+        if matches:
+            classes = []
+            for match in matches:
+                classes.append(dictionary[match])
+            return sorted(classes, reverse=True)[0]
+
+
+    # test the check_type function
     """
-    This is a helper that takes the type dictionary and returns
-    the correct class of the string.
+    testset = ["D. u. Rg.", 
+               "GutsB.", 
+               "D. u. Dom. (aus: Mittel, Nieder u. Ober D.)", 
+               "St.", 
+               "St. u. D.", # to check if ordering works
+               "D. u. GutsB."   # to check if ordering works
+              ]
+    
+    for string in testset:
+        print("\n" + string)
+        print(check_type(string))
     """
-    matches = []
-    # get all matches of string
-    for key in list(dictionary.keys()):
-        regex = key.replace(".", "\.").lower()
-        # only tag "G." if it is not preceeded by an "r" (i.e. if "Rg.")
-        if key == "G.":
-            regex = '(?<!r)' + regex
-        match = re.search(regex, string.lower())
-        if match:
-            matches.append(key)
-            # if there exists a match return the correct class label (in accordance with ordering)
-    if matches:
-        classes = []
-        for match in matches:
-            classes.append(dictionary[match])
-        return sorted(classes, reverse=True)[0]
 
+    # Now that we are all set let's create the column `class`. And inspect if it worked
+    # make sure column Type has only string values
+    df_county['Type'] = df_county['Type'].astype(str)
+    # make apply check_type() function
+    df_county['class_gazetter'] = df_county['Type'].apply(check_type)
+    # # check results
+    # print("checking the class_gazette column has been successfully and accurately added")
+    # print(df_fraustadt[['id', 'name_gazetter', 'lat', 'lng','Type', 'merge_name', 'class_gazetter']].head())
+    return df_county
 
-# test the check_type function
-"""
-testset = ["D. u. Rg.", 
-           "GutsB.", 
-           "D. u. Dom. (aus: Mittel, Nieder u. Ober D.)", 
-           "St.", 
-           "St. u. D.", # to check if ordering works
-           "D. u. GutsB."   # to check if ordering works
-          ]
-
-for string in testset:
-    print("\n" + string)
-    print(check_type(string))
-"""
-
-# Now that we are all set let's create the column `class`. And inspect if it worked
-# make sure column Type has only string values
-df_fraustadt['Type'] = df_fraustadt['Type'].astype(str)
-# make apply check_type() function
-df_fraustadt['class_gazetter'] = df_fraustadt['Type'].apply(check_type)
-# # check results
-# print("checking the class_gazette column has been successfully and accurately added")
-# print(df_fraustadt[['id', 'name_gazetter', 'lat', 'lng','Type', 'merge_name', 'class_gazetter']].head())
+df_fraustadt = gazetter_data(county,alt_county)
 
 # split df_fraustadt into lat/long == null and lat/long!=null
-df_fraustadt_latlong = df_fraustadt[df_fraustadt['lat'] != 0]
-df_fraustadt_null = df_fraustadt[df_fraustadt['lat'] == 0]
+df_county_latlong = df_county[df_fraustadt['lat'] != 0]
+df_county_null = df_county[df_fraustadt['lat'] == 0]
 
 """ ----------------------------LOAD CLEANED CENSUS DATA AND APPLY STRING CLEANING -----------------------------------"""
 
