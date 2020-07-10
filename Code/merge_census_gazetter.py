@@ -448,6 +448,39 @@ def merge_data(df_county_gaz, df_county_cens):
 
     return df_combined, exact_match_perc, df_join
 
+"""---------------------------- ANALYSIS OF UNMATCHED ENTRIES - LEVENSHTEIN DISTANCE ---------------------------"""
+def lev_dist_calc(df_county_cens, df_county_gaz, df_merged):
+    # Meyers Gazetter: Which locations were not matched?
+    # Finally, we would like to know which Gazetter entries are not matched.
+    columns = list(df_county_cens.columns)
+    id_gazetter = set(df_county_gaz['id'].values)
+    id_merge = set(df_merged['id'].values)
+    diff = id_gazetter - id_merge
+    df_remainder = df_county_gaz[df_county_gaz['id'].isin(diff)]
+    df_remainder.to_excel(os.path.join(wdir, 'PrussianCensus1871/Fraustadt', 'Gazetter_Fraustadt_Lissa_Remainder.xlsx'),
+                          index=False)
+
+    # extract unmatched names from census data:
+    unmatched_census_df = df_join[df_join['_merge'] == 'left_only']
+    unmatched_census_df = unmatched_census_df[columns]
+    unmatched_name_census = unmatched_census_df["name"]
+    unmatched_altname_census = unmatched_census_df["alt_name"].astype(str)
+
+    # extract entries in gazetter data:
+    unmatched_name_gazetter = df_county_gaz['merge_name']
+    unmatched_base_name_gazetter = df_county_gaz['base_merge_name'].astype(str)
+
+    # call levenshtein comparison function
+    levenshtein_matches = lev_array(unmatched_name_gazetter, unmatched_name_census)
+    levenshtein_matches += lev_array(unmatched_name_gazetter, unmatched_altname_census)
+    levenshtein_matches += lev_array(unmatched_base_name_gazetter, unmatched_name_census)
+
+    # convert list of lists to data frame
+    unmatched_census_df = unmatched_census_df.assign(lev_match=unmatched_census_df['name'])
+    for match in levenshtein_matches:
+        unmatched_census_df.loc[unmatched_census_df['lev_match'] == match[0], 'lev_match'] = match[1]
+
+    return unmatched_census_df, levenshtein_matches
 
 # df_county_gaz = gazetter_data(county,alt_county)
 #
@@ -456,6 +489,67 @@ def merge_data(df_county_gaz, df_county_cens):
 # df_county_gaz_null = df_county[df_county['lat'] == 0]
 #
 # df_county_cens = census_data(county)
+
+""" ------------------------------- CONDUCT MERGE ROUNDS BASED ON LEVENSTEIN DISTANCE ---------------------------- """
+def lev_merge(df_county_gaz, df_merge, unmatched_census_df):
+    # lev_merge_df = merge_STATA(unmatched_census_df, df_remainder, how='left', left_on='lev_match', right_on='merge_name')
+
+    # column data has been updated to inculde lev_match so redeclare it
+    columns = list(unmatched_census_df.columns)
+
+    # split df_fraustadt into lat/long == null and lat/long!=null
+    df_county_gaz_latlong = df_county_gaz[df_county_gaz['lat'] != 0]
+    df_county_gaz_null = df_county_gaz[df_county_gaz['lat'] == 0]
+
+    # merge round 6 for levenshtein merge
+    df_county_gaz_latlong = df_county_gaz_latlong.assign(merge_round=6)
+    df_county_gaz_null = df_county_gaz_null.assign(merge_round=6)
+
+    # follow the same iterative procedure as before, except using 'lev_match' instead of 'name' or 'alt_name'
+    # first check gazetter entries with location data.
+    #  1.) Merge if class and levenshtein distance match
+    print(
+        "Merging if name matches via levenshtein distance algortithm and class matches a gazetter entry with location data")
+    df_join = merge_STATA(unmatched_census_df, df_county_gaz_latlong, how='left', left_on=['lev_match', 'class'],
+                          right_on=['merge_name', 'class_gazetter'])
+    # set aside merged locations
+    df_lev_merge1 = df_join[df_join['_merge'] == 'both']
+    # select locations without a match
+    df_nomatch = df_join[df_join['_merge'] == 'left_only']
+    df_nomatch = df_nomatch[columns]
+
+    # 2.) Merge if levenshtein distance only matches
+    print("Merging if name matches via levenshtein distance algortithm a gazetter entry with location data")
+    df_join = merge_STATA(df_nomatch, df_county_gaz_latlong, how='left', left_on='lev_match', right_on='merge_name')
+    # set aside merged locations
+    df_lev_merge2 = df_join[df_join['_merge'] == 'both']
+    # select locations without a match
+    df_nomatch = df_join[df_join['_merge'] == 'left_only']
+    df_nomatch = df_nomatch[columns]
+
+    # check unmatched entries against non-location gazetter data
+    #  1.) Merge if class and levenshtein distance match
+    print(
+        "Merging if name matches via levenshtein distance algortithm and class matches a gazetter entry WITHOUT location data")
+    df_join = merge_STATA(df_nomatch, df_county_gaz_null, how='left', left_on=['lev_match', 'class'],
+                          right_on=['merge_name', 'class_gazetter'])
+    # set aside merged locations
+    df_lev_merge3 = df_join[df_join['_merge'] == 'both']
+    # select locations without a match
+    df_nomatch = df_join[df_join['_merge'] == 'left_only']
+    df_nomatch = df_nomatch[columns]
+
+    # 2.) Merge if levenshtein distance only matches
+    print("Merging if name matches via levenshtein distance algortithm a gazetter entry WITHOUT location data")
+    df_join = merge_STATA(df_nomatch, df_county_gaz_null, how='left', left_on='lev_match', right_on='merge_name')
+
+    # add to output, but also write to output dedicated to matched made by levenshtein merge.
+    # write file to disk
+    df_lev_merge = pd.concat([df_lev_merge1, df_lev_merge2, df_lev_merge3, df_join], ignore_index=True)
+    df_merge = pd.concat([df_merge, df_lev_merge], ignore_index=True, sort=False)
+
+    return df_merge, df_lev_merge
+
 
 df_fraustadt = gazetter_data(county,alt_county)
 
@@ -467,91 +561,9 @@ df_master = census_data(county)
 
 df_output, exact_match_perc, df_join = merge_data(df_fraustadt, df_master)
 
-"""---------------------------- ANALYSIS OF UNMATCHED ENTRIES - LEVENSHTEIN DISTANCE ---------------------------"""
+unmatched_census_df, levenshtein_matches = lev_dist_calc(df_master, df_fraustadt, df_output)
 
-# Meyers Gazetter: Which locations were not matched?
-# Finally, we would like to know which Gazetter entries are not matched.
-columns = list(df_master.columns)
-id_gazetter = set(df_fraustadt['id'].values)
-id_merge = set(df_output['id'].values)
-diff = id_gazetter - id_merge
-df_remainder = df_fraustadt[df_fraustadt['id'].isin(diff)]
-df_remainder.to_excel(os.path.join(wdir, 'PrussianCensus1871/Fraustadt', 'Gazetter_Fraustadt_Lissa_Remainder.xlsx'),
-                      index=False)
-
-# extract unmatched names from census data:
-unmatched_census_df = df_join[df_join['_merge'] == 'left_only']
-unmatched_census_df = unmatched_census_df[columns]
-unmatched_name_census = unmatched_census_df["name"]
-unmatched_altname_census = unmatched_census_df["alt_name"].astype(str)
-
-# extract entries in gazetter data:
-unmatched_name_gazetter = df_fraustadt['merge_name']
-unmatched_base_name_gazetter = df_fraustadt['base_merge_name'].astype(str)
-
-# call levenshtein comparison function
-levenshtein_matches = lev_array(unmatched_name_gazetter, unmatched_name_census)
-levenshtein_matches += lev_array(unmatched_name_gazetter, unmatched_altname_census)
-levenshtein_matches += lev_array(unmatched_base_name_gazetter, unmatched_name_census)
-
-# convert list of lists to data frame
-unmatched_census_df = unmatched_census_df.assign(lev_match=unmatched_census_df['name'])
-for match in levenshtein_matches:
-    unmatched_census_df.loc[unmatched_census_df['lev_match'] == match[0], 'lev_match'] = match[1]
-
-""" ------------------------------- CONDUCT MERGE ROUNDS BASED ON LEVENSTEIN DISTANCE ---------------------------- """
-
-# lev_merge_df = merge_STATA(unmatched_census_df, df_remainder, how='left', left_on='lev_match', right_on='merge_name')
-
-# column data has been updated to inculde lev_match so redeclare it
-columns = list(unmatched_census_df.columns)
-
-# merge round 5 for levenshtein merge
-df_fraustadt_latlong = df_fraustadt_latlong.assign(merge_round=6)
-df_fraustadt_null = df_fraustadt_null.assign(merge_round=6)
-
-# follow the same iterative procedure as before, except using 'lev_match' instead of 'name' or 'alt_name'
-# first check gazetter entries with location data.
-#  1.) Merge if class and levenshtein distance match
-print(
-    "Merging if name matches via levenshtein distance algortithm and class matches a gazetter entry with location data")
-df_join = merge_STATA(unmatched_census_df, df_fraustadt_latlong, how='left', left_on=['lev_match', 'class'],
-                      right_on=['merge_name', 'class_gazetter'])
-# set aside merged locations
-df_lev_merge1 = df_join[df_join['_merge'] == 'both']
-# select locations without a match
-df_nomatch = df_join[df_join['_merge'] == 'left_only']
-df_nomatch = df_nomatch[columns]
-
-# 2.) Merge if levenshtein distance only matches
-print("Merging if name matches via levenshtein distance algortithm a gazetter entry with location data")
-df_join = merge_STATA(df_nomatch, df_fraustadt_latlong, how='left', left_on='lev_match', right_on='merge_name')
-# set aside merged locations
-df_lev_merge2 = df_join[df_join['_merge'] == 'both']
-# select locations without a match
-df_nomatch = df_join[df_join['_merge'] == 'left_only']
-df_nomatch = df_nomatch[columns]
-
-# check unmatched entries against non-location gazetter data
-#  1.) Merge if class and levenshtein distance match
-print(
-    "Merging if name matches via levenshtein distance algortithm and class matches a gazetter entry WITHOUT location data")
-df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on=['lev_match', 'class'],
-                      right_on=['merge_name', 'class_gazetter'])
-# set aside merged locations
-df_lev_merge3 = df_join[df_join['_merge'] == 'both']
-# select locations without a match
-df_nomatch = df_join[df_join['_merge'] == 'left_only']
-df_nomatch = df_nomatch[columns]
-
-# 2.) Merge if levenshtein distance only matches
-print("Merging if name matches via levenshtein distance algortithm a gazetter entry WITHOUT location data")
-df_join = merge_STATA(df_nomatch, df_fraustadt_null, how='left', left_on='lev_match', right_on='merge_name')
-
-# add to output, but also write to output dedicated to matched made by levenshtein merge.
-# write file to disk
-lev_merge_df = pd.concat([df_lev_merge1, df_lev_merge2, df_lev_merge3, df_join], ignore_index=True)
-df_output = pd.concat([df_output, lev_merge_df], ignore_index=True, sort=False)
+df_output, lev_merge_df = lev_merge(df_fraustadt, df_output, unmatched_census_df)
 
 # drop duplicates from output arbitratilly. !! Need a method.
 df_output_nodups = df_output.drop_duplicates(subset=['loc_id'], keep='last')
