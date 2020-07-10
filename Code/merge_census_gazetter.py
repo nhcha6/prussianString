@@ -19,14 +19,9 @@ import re
 import math
 
 # set working directory path as location of data
-wdir = '/Users/nicolaschapman/Documents/PrussianStringMatching/Data/'
-
-# set county name to be run
-county = "Fraustadt"
-alt_county = "Lissa"
+WORKING_DIRECTORY = '/Users/nicolaschapman/Documents/PrussianStringMatching/Data/'
 
 """---------------------------------- DECLARE FUNCTIONS ----------------------------------"""
-
 def merge_STATA(master, using, how='outer', on=None, left_on=None, right_on=None, indicator=True,
                 suffixes=('_master', '_using'), drop=None, keep=None, drop_merge=False):
     """
@@ -162,7 +157,7 @@ def gazetter_data(county, alt_county=None):
     # df.to_pickle(wdir+"df_pickle")
 
     # load saved data frame
-    df = pd.read_pickle(wdir + "df_pickle")
+    df = pd.read_pickle(WORKING_DIRECTORY + "df_pickle")
     print(f'The number of entries in Meyer Gazetter is: {df.shape[0]}')
 
     # First, let's see how many cities have Fraustadt in any of the columns (drop duplicates created by this technique).
@@ -263,7 +258,7 @@ def census_data(county):
     # `pattern = \sa\/|\sunt\s|\sa\s|\sunterm\s|\si\/|\si\s|\sb\s|\sin\s|\sbei\s|\sam\s|\san\s`
 
     # load saved data frame
-    df_census = pd.read_pickle(wdir+"census_df_pickle")
+    df_census = pd.read_pickle(WORKING_DIRECTORY+"census_df_pickle")
     df_county = df_census[df_census['county']==county.lower()]
 
     # upload cleaned data
@@ -457,7 +452,7 @@ def lev_dist_calc(df_county_cens, df_county_gaz, df_merged):
     id_merge = set(df_merged['id'].values)
     diff = id_gazetter - id_merge
     df_remainder = df_county_gaz[df_county_gaz['id'].isin(diff)]
-    df_remainder.to_excel(os.path.join(wdir, 'PrussianCensus1871/Fraustadt', 'Gazetter_Fraustadt_Lissa_Remainder.xlsx'),
+    df_remainder.to_excel(os.path.join(WORKING_DIRECTORY, 'PrussianCensus1871/Fraustadt', 'Gazetter_Fraustadt_Lissa_Remainder.xlsx'),
                           index=False)
 
     # extract unmatched names from census data:
@@ -555,14 +550,14 @@ def write_merged_data(df_merged, df_lev_merged):
     df_merged.drop(columns=["_merge"], inplace=True)
     df_merged.sort_values(by="loc_id", inplace=True)
     df_merged.drop(columns=["lev_match"], inplace=True)
-    df_merged.to_excel(os.path.join(wdir, 'PrussianCensus1871/Fraustadt', 'Posen-Fraustadt-kreiskey-134-merged.xlsx'),
+    df_merged.to_excel(os.path.join(WORKING_DIRECTORY, 'PrussianCensus1871/Fraustadt', 'Posen-Fraustadt-kreiskey-134-merged.xlsx'),
                        index=False)
     # prepare for levenshtein matches write to file
     df_lev_merged.drop(columns=["_merge"], inplace=True)
     df_lev_merged.drop(columns=["lev_match"], inplace=True)
     df_lev_merged.sort_values(by="loc_id", inplace=True)
     df_lev_merged.to_excel(
-        os.path.join(wdir, 'PrussianCensus1871/Fraustadt', 'Posen-Fraustadt-kreiskey-134-lev_match_merge.xlsx'),
+        os.path.join(WORKING_DIRECTORY, 'PrussianCensus1871/Fraustadt', 'Posen-Fraustadt-kreiskey-134-lev_match_merge.xlsx'),
         index=False)
 
     """ ------------------------------------ CALCULATE QUALITY STATISTICS ----------------------------------------"""
@@ -587,7 +582,7 @@ def qual_stat(exact_match_perc, df_merge_nodups):
         f'''\n{round5_perc:.2f}% of locations were matched by simplifying the name from both the census and meyers gazetter''')
 
     # import csv to data frame, edit it and output new data frame to csv
-    df_merge_details = pd.read_excel(os.path.join(wdir, 'PrussianCensus1871/', 'MergeDetails.xlsx'))
+    df_merge_details = pd.read_excel(os.path.join(WORKING_DIRECTORY, 'PrussianCensus1871/', 'MergeDetails.xlsx'))
 
     # if county has never been run, add new entry
     if df_merge_details[df_merge_details['county'] == county].empty:
@@ -609,31 +604,36 @@ def qual_stat(exact_match_perc, df_merge_nodups):
         lev_typo += match[0] + " - " + match[1] + " | "
     df_merge_details.loc[df_merge_details['county'] == county, 'lev_typo'] = lev_typo
 
-    df_merge_details.to_excel(os.path.join(wdir, 'PrussianCensus1871/', 'MergeDetails.xlsx'), index=False)
+    df_merge_details.to_excel(os.path.join(WORKING_DIRECTORY, 'PrussianCensus1871/', 'MergeDetails.xlsx'), index=False)
 
 
-# gather gazetter entires
-df_fraustadt = gazetter_data(county,alt_county)
+# set county name to be run
+county = "Fraustadt"
+alt_county = "Lissa"
 
-# split df_fraustadt into lat/long == null and lat/long!=null
-df_fraustadt_latlong = df_fraustadt[df_fraustadt['lat'] != 0]
-df_fraustadt_null = df_fraustadt[df_fraustadt['lat'] == 0]
+# gather and clean gazetter entires
+df_gazetter = gazetter_data(county,alt_county)
 
-df_master = census_data(county)
+# gather and clean census
+df_census = census_data(county)
 
-df_output, exact_match_perc, df_join = merge_data(df_fraustadt, df_master)
+# merge census data
+df_merged, exact_match_perc, df_join = merge_data(df_gazetter, df_census)
 
-unmatched_census_df, levenshtein_matches = lev_dist_calc(df_master, df_fraustadt, df_output)
+# complete levenshtein distance calulations
+df_unmatched_census, levenshtein_matches = lev_dist_calc(df_census, df_gazetter, df_merged)
 
-df_output, lev_merge_df = lev_merge(df_fraustadt, df_output, unmatched_census_df)
+# merge based on levenshtein distance
+df_merged, df_lev_merged = lev_merge(df_gazetter, df_merged, df_unmatched_census)
 
 # write to file
-write_merged_data(df_output, lev_merge_df)
+write_merged_data(df_merged, df_lev_merged)
 
 # drop duplicates from output arbitratilly. !! Need a method.
-df_output_nodups = df_output.drop_duplicates(subset=['loc_id'], keep='last')
+df_merged_nodups = df_merged.drop_duplicates(subset=['loc_id'], keep='last')
 
-qual_stat(exact_match_perc, df_output_nodups)
+# calculate quality stats
+qual_stat(exact_match_perc, df_merged_nodups)
 
 
 
