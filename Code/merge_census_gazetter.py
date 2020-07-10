@@ -18,6 +18,8 @@ from tabulate import tabulate
 import re
 import math
 
+pd.set_option("display.max_rows", None, "display.max_columns", None)
+
 # set working directory path as location of data
 WORKING_DIRECTORY = '/Users/nicolaschapman/Documents/PrussianStringMatching/Data/'
 
@@ -288,12 +290,17 @@ def census_data(county):
     df_county['name'] = df_county['name'].str.replace(r',.+', '')
     # account for cases with appendixes such as Neuguth bei Reisen and Neuguth bei Fraustadt
     pattern = '\sa\/|\sunt\s|\sa\s|\sunterm\s|\si\/|\si\s|\sb\s|\sin\s|\sbei\s|\sam\s|\san\s'
-    df_county[['temp_name', 'appendix']] = df_county['name'].str.split(pattern, expand=True)
-    # attribute more restrictive name (i.e. with appendix) to `alt_name` if there exists an appendix
-    df_county.loc[df_county['appendix'].notnull(), 'alt_name'] = df_county.loc[df_county['appendix'].notnull(), 'name']
-    # attribute more restrictive name (i.e. with appendix) to `alt_name` if there exists an appendix
-    df_county.loc[df_county['appendix'].notnull(), 'name'] = df_county.loc[df_county['appendix'].notnull(), 'temp_name']
-    df_county.drop(columns=["temp_name"], inplace=True)
+    split = df_county['name'].str.split(pattern, expand=True)
+    if len(split.columns) == 2:
+        df_county[['temp_name', 'appendix']] = df_county['name'].str.split(pattern, expand=True)
+        # attribute more restrictive name (i.e. with appendix) to `alt_name` if there exists an appendix
+        df_county.loc[df_county['appendix'].notnull(), 'alt_name'] = df_county.loc[df_county['appendix'].notnull(), 'name']
+        # attribute more restrictive name (i.e. with appendix) to `alt_name` if there exists an appendix
+        df_county.loc[df_county['appendix'].notnull(), 'name'] = df_county.loc[df_county['appendix'].notnull(), 'temp_name']
+        df_county.drop(columns=["temp_name"], inplace=True)
+    else:
+        df_county['appendix'] = np.nan
+        df_county['appendix'] = df_county['appendix'].astype(str)
 
     # strip all [name, alt_name, suffix] of white spaces
     # df_master.replace(np.nan, '', regex=True)
@@ -435,7 +442,7 @@ def merge_data(df_county_gaz, df_county_cens):
 
     # How well did we do?
     # Note: We now do not consider duplicates but compare to the original excel-file entries
-    exact_match_perc = (df_county_gaz_null.shape[0] - df_join[df_join["_merge"] == "left_only"].shape[0]) / df_county_gaz_null.shape[0] * 100
+    exact_match_perc = (df_county_cens.shape[0] - df_join[df_join["_merge"] == "left_only"].shape[0]) / df_county_cens.shape[0] * 100
 
     # !! To-Do: Eliminate Duplicates: duplicates currently only occur when two matches are found on the same round of
     # a merge. Gazetter entries without location data are only considered for the municipalities in the census that do not
@@ -562,8 +569,7 @@ def qual_stat(exact_match_perc, df_merge_nodups, county):
     match_perc = 100 * (df_merge_nodups.shape[0] - df_merge_nodups[df_merge_nodups['id'].isnull()].shape[0]) / \
                  df_merge_nodups.shape[0]
     print(f'''\n{match_perc:.2f}% of locations were matched when levenshtein distance was considered''')
-    loc_perc = 100 * (df_merge_nodups.shape[0] - df_merge_nodups[df_merge_nodups['lat'] == 0].shape[0]) / \
-               df_merge_nodups.shape[0]
+    loc_perc = 100 * (df_merge_nodups.shape[0] - (df_merge_nodups[df_merge_nodups['lat'] == 0].shape[0] + df_merge_nodups[df_merge_nodups['id'].isnull()].shape[0]))/df_merge_nodups.shape[0]
     print(f'''\n{loc_perc:.2f}% of locations were matched to geocode data''')
     round1_perc = 100 * df_merge_nodups[df_merge_nodups['merge_round'] == 1].shape[0] / df_merge_nodups.shape[0]
     print(f'''\n{round1_perc:.2f}% of locations were matched by classification and the exact name''')
@@ -604,8 +610,11 @@ def qual_stat(exact_match_perc, df_merge_nodups, county):
 
 
 # set county name to be run
-county = "Fraustadt"
-alt_county = "Lissa"
+county = "Konitz"
+alt_county = "Tuchel"
+
+# county = "Fraustadt"
+# alt_county = "Lissa"
 
 # gather and clean gazetter entires
 df_gazetter = gazetter_data(county,alt_county)
