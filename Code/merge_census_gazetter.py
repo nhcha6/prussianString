@@ -171,7 +171,7 @@ def gazetter_data(county, alt_county=None):
     # df_fraustadt = df[(df.values=="Fraustadt")|(df.values=="Lissa")]
     if alt_county != None:
         df_county = df[df['Kr'].str.startswith(county, na=False) | df['Kr'].str.startswith(alt_county, na=False) | df[
-        'AG'].str.startswith("Fraustadt", na=False) | df['AG'].str.startswith("Lissa", na=False)]
+        'AG'].str.startswith(county, na=False) | df['AG'].str.startswith(alt_county, na=False)]
     else:
         df_county = df[df['Kr'].str.startswith(county, na=False)  | df['AG'].str.startswith("Fraustadt", na=False)]
 
@@ -462,6 +462,8 @@ def lev_dist_calc(df_county_cens, df_county_gaz, df_merged, county):
 
     if not os.path.exists(os.path.join(WORKING_DIRECTORY, 'Output/', county)):
         os.makedirs(os.path.join(WORKING_DIRECTORY, 'Output/', county))
+
+
     df_remainder.to_excel(os.path.join(WORKING_DIRECTORY, 'Output/', county, 'Gazetter_Remainder.xlsx'),
                           index=False)
 
