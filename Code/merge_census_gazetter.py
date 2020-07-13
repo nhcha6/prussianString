@@ -105,15 +105,15 @@ def gazetter_data(county_names, df):
     # else:
     #     df_county = df[df['Kr'].str.startswith(county, na=False)  | df['AG'].str.startswith("Fraustadt", na=False)]
 
-    df_county = df[df['Kr'].str.startswith(county_names[0].title(), na=False) | df['AG'].str.startswith(county_names[0].title(), na=False)]
-    for name in county_names:
-        # skip first
-        if name == county_names[0]:
-            continue
-        df_temp = df[df['Kr'].str.startswith(name.title(), na=False) | df['AG'].str.startswith(name.title(), na=False)]
-        df_county = pd.concat([df_county,df_temp], ignore_index=True)
+    # df_county = df[df['Kr'].str.startswith(county_names[0].title(), na=False) | df['AG'].str.startswith(county_names[0].title(), na=False)]
+    # for name in county_names:
+    #     # skip first
+    #     if name == county_names[0]:
+    #         continue
+    #     df_temp = df[df['Kr'].str.startswith(name.title(), na=False) | df['AG'].str.startswith(name.title(), na=False)]
+    #     df_county = pd.concat([df_county,df_temp], ignore_index=True)
 
-    #df_county = df
+    df_county = df
 
     # duplicated columns: keep only first
     df_county = df_county.groupby(['id']).first().reset_index()
@@ -669,7 +669,7 @@ def qual_stat(exact_match_perc, df_merge_nodups, county):
     df_merge_details.to_excel(os.path.join(WORKING_DIRECTORY, 'Output/', 'MergeDetails.xlsx'), index=False)
 
 
-
+"""-------------------------------------- RUN CODE -----------------------------------------------------------------"""
 
 # load saved data frame containing census file
 df_census = pd.read_pickle(WORKING_DIRECTORY+"census_df_pickle")
@@ -691,16 +691,18 @@ df_counties = extract_county_names(df_census)
 df_gazetter = pd.read_pickle(WORKING_DIRECTORY + "df_pickle")
 print(f'The number of entries in Meyer Gazetter is: {df_gazetter.shape[0]}')
 
+## import quality data and add the counties with <60% match rate.
+# bad_match
+quality_data = pd.read_excel(os.path.join(WORKING_DIRECTORY, 'Output/', 'MergeDetails.xlsx'))
+bad_match_df = quality_data[quality_data['match_perc']<70]
+bad_matches = set()
+for bad_match in bad_match_df['county']:
+    bad_matches.add(bad_matches)
+
 # build up list of possible county names to be searched against gazetter.
-cont_flag = True
-count = 0
 for county in df_counties['orig_name']:
-    count+=1
-    print(count)
-    # if county=='lyk':
-    #     cont_flag = False
-    # if cont_flag:
-    #     continue
+    if county not in bad_matches:
+        continue
     current_county = df_counties.loc[df_counties['orig_name'] == county]
     current_county=current_county.reset_index()
     current_county.drop(columns=["index"], inplace=True)
@@ -712,8 +714,6 @@ for county in df_counties['orig_name']:
 
     print(f'''\nMATCHING FOR: {current_county_names[0]}\n''')
     print(current_county_names)
-
-    #if county == 'koenigsberg' or county == 'koenigsberg stadt':
 
     # extract county name that appears in the census
     county = current_county_names[0]
@@ -728,11 +728,12 @@ for county in df_counties['orig_name']:
     df_merged, exact_match_perc, df_join = merge_data(df_gazetter_county, df_census_county)
 
     # prepare for total output write to file
-    # df_merged.drop(columns=["_merge"], inplace=True)
-    # df_merged.sort_values(by="loc_id", inplace=True)
-    # df_merged.to_excel(os.path.join(WORKING_DIRECTORY, 'OutputDodge/', county, 'Merged_Data_' + county + '.xlsx'),
-    #                    index=False)
+    df_merged.drop(columns=["_merge"], inplace=True)
+    df_merged.sort_values(by="loc_id", inplace=True)
+    df_merged.to_excel(os.path.join(WORKING_DIRECTORY, 'OutputDodge/', county, 'Merged_Data_' + county + '.xlsx'),
+                       index=False)
 
+"""
     # complete levenshtein distance calulations
     df_unmatched_census, levenshtein_matches = lev_dist_calc(df_census_county, df_gazetter_county, df_merged, county)
 
@@ -747,7 +748,7 @@ for county in df_counties['orig_name']:
 
     # calculate quality stats
     qual_stat(exact_match_perc, df_merged_nodups, county)
-
+"""
 
 
 
