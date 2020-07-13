@@ -23,124 +23,6 @@ pd.set_option("display.max_rows", None, "display.max_columns", None)
 # set working directory path as location of data
 WORKING_DIRECTORY = '/Users/nicolaschapman/Documents/PrussianStringMatching/Data/'
 
-"""---------------------------------- DECLARE FUNCTIONS ----------------------------------"""
-def merge_STATA(master, using, how='outer', on=None, left_on=None, right_on=None, indicator=True,
-                suffixes=('_master', '_using'), drop=None, keep=None, drop_merge=False):
-    """
-    function that imitates STATA's merge command and initializes most options of pandas DataFrame merge.
-    ----
-    Requirements: library "tabulate"
-    ----
-    Parameters:
-    master:        Master DataFrame
-    using:         Using DataFrame
-    how:           Type of merge to be performed: default is set to ‘outer‘ (as in STATA).
-                   Other options are equivalent to pd.merge, i.e. {‘left’, ‘right’, ‘inner’}.
-    on:            Column or index level names to join on. These must be found in both DataFrames.
-    left_on:       Column or index level names to join on in the left (master) DataFrame
-    right_on:      Column or index level names to join on in the right (using) DataFrame.
-    indicator:     If True (default) adds column “_merge” to output DataFrame with information
-                   on the source of each row.
-    suffixes:      Suffix to apply to overlapping column names in the left (master) and right
-                   (using) side. Default set to {‘_master’, ‘_master’}
-    drop:          If specified, rows labeled as either “left_only” (STATA: _merge==1),
-                   “right_only” (_merge==2), or “both” (_merge==3) are dropped after the merge.
-                   By default, no rows are dropped.
-    keep:          If specified, only rows labeled as either “left_only” (STATA: _merge==1),
-                   “right_only” (_merge==2), or “both” (_merge==3) are kept after the merge.
-                   By default, all rows are kept.
-    drop_merge:    Drop column _merge if True
-    ----
-    Return:        (Merged) Dataframe
-
-    """
-
-    if left_on == None and right_on == None:  # if variables the same in both df
-        merge = master.merge(using, how=how, on=on, indicator=indicator, suffixes=suffixes)
-
-    if on == None:
-        merge = master.merge(using, how=how, left_on=left_on, right_on=right_on, indicator=indicator, suffixes=suffixes)
-
-    if left_on == None and right_on == None and on == None:
-        print("Either ‘on‘ or {‘left_on’, ‘right_on’} have to be defined")
-
-    if indicator == True:
-        # define variables needed for
-        result = merge["_merge"].value_counts()
-        not_matched_master = result["left_only"]  # STATA: _merge==1
-        not_matched_using = result["right_only"]  # STATA: _merge==2
-        matched = result["both"]  # STATA: _merge==3
-        # define "STATA" merge table
-        table = [['not matched', '', not_matched_master + not_matched_using],
-                 ['', 'from master', not_matched_master],
-                 ['', 'from using', not_matched_using],
-                 ['matched', '', matched]]
-        try:
-            print(tabulate(table, headers=['Result', '', '# of obs.'], tablefmt="fancy_grid"))
-        except:
-            print("Error: Merge table could not be compiled! Please import library tabulate")
-    if drop != None:
-        merge = merge[~merge['_merge'] == drop]  # drop rows that equal drop expression
-        print("Drop if {}".format(drop))
-
-    if keep != None:
-        merge = merge[merge['_merge'] == keep]  # keep rows that equal keep expression
-        print("Keep if {}".format(keep))
-
-    if drop_merge:
-        merge.drop(['_merge'], axis=1, inplace=True)
-
-    return merge
-
-
-def levenshtein(seq1, seq2):
-    """returns the minimum number of changes (replacement, insertion, deletion) required to convert between two stings.
-    code taken from: https://stackabuse.com/levenshtein-distance-and-text-similarity-in-python/#:~:text=The%20Levenshtein%20Distance,-This%20method%20was&text=The%20distance%20value%20describes%20the,strings%20with%20an%20unequal%20length."""
-    size_x = len(seq1) + 1
-    size_y = len(seq2) + 1
-    matrix = np.zeros((size_x, size_y))
-    for x in range(size_x):
-        matrix[x, 0] = x
-    for y in range(size_y):
-        matrix[0, y] = y
-
-    for x in range(1, size_x):
-        for y in range(1, size_y):
-            if seq1[x - 1] == seq2[y - 1]:
-                matrix[x, y] = min(
-                    matrix[x - 1, y] + 1,
-                    matrix[x - 1, y - 1],
-                    matrix[x, y - 1] + 1
-                )
-            else:
-                matrix[x, y] = min(
-                    matrix[x - 1, y] + 1,
-                    matrix[x - 1, y - 1] + 1,
-                    matrix[x, y - 1] + 1
-                )
-    # print (matrix)
-    return (matrix[size_x - 1, size_y - 1])
-
-
-def lev_array(unmatched_gazetter_name, unmatched_census_name):
-    """
-    algorithm which calculates the levenshtein distance for all unmatches census names and gazetter names beginning with
-    the same letter. If the ratio of the levenshtein distance to the length of the census_name is less than the a
-    certain value (0.3 at the moment) the pair is added to an output array.
-    output is list of lists: [[census_name, closest gazzeter_name, levenshtein ratio]]
-    """
-    levenshtein_array = []
-    for census_name in unmatched_census_name:
-        if census_name == 'nan':
-            continue
-        for gazetter_name in unmatched_gazetter_name:
-            if gazetter_name[0] != census_name[0]:
-                continue
-            ldist = levenshtein(gazetter_name, census_name)
-            if ldist / len(census_name) < 0.3:
-                entry = [census_name, gazetter_name, ldist / len(census_name)]
-                levenshtein_array.append(entry)
-    return levenshtein_array
 
 """ ------------------------------------ EXTRACT COUNTY NAMES FROM CENSUS -------------------------------------"""
 def extract_county_names(df_census):
@@ -155,15 +37,49 @@ def extract_county_names(df_census):
     # clean county names and extract names to be searched against meyers gazetter
     df_counties = pd.DataFrame(counties, columns = ['orig_name'])
     df_counties['simp_name'] = df_counties['orig_name']
+
+    # fix up found typos and changes first:
+    df_counties.loc[df_counties['orig_name'] == 'ostpriegnitz', 'simp_name'] = 'ostprignitz'
+    df_counties.loc[df_counties['orig_name'] == 'westpriegnitz', 'simp_name'] = 'westprignitz'
+    df_counties.loc[df_counties['orig_name'] == 'krossen', 'simp_name'] = 'crossen'
+    df_counties.loc[df_counties['orig_name'] == 'kalau', 'simp_name'] = 'calau'
+    df_counties.loc[df_counties['orig_name'] == 'kottbus', 'simp_name'] = 'cottbus'
+    df_counties.loc[df_counties['orig_name'] == 'ukermuende', 'simp_name'] = 'ueckermünde'
+    df_counties.loc[df_counties['orig_name'] == 'buk', 'simp_name'] = 'neutomischel-grätz'
+    df_counties.loc[df_counties['orig_name'] == 'kroeben', 'simp_name'] = 'rawitsch-gostyn'
+    df_counties.loc[df_counties['orig_name'] == 'chodziesen', 'simp_name'] = 'kolmar'
+    df_counties.loc[df_counties['orig_name'] == 'inowraclaw', 'simp_name'] = 'hohensalza'
+    df_counties.loc[df_counties['orig_name'] == 'freistadt', 'simp_name'] = 'freystadt'
+    df_counties.loc[df_counties['orig_name'] == 'jerichow I', 'simp_name'] = 'jericho 1'
+    df_counties.loc[df_counties['orig_name'] == 'jerichow II', 'simp_name'] = 'jericho 2'
+    df_counties.loc[df_counties['orig_name'] == 'stader marschkreis', 'simp_name'] = 'kehdingen'
+    df_counties.loc[df_counties['orig_name'] == 'stader geestkreis', 'simp_name'] = 'stade'
+    df_counties.loc[df_counties['orig_name'] == 'kassel stadtkreis', 'simp_name'] = 'cassel'
+    df_counties.loc[df_counties['orig_name'] == 'kassel landkreis', 'simp_name'] = 'cassel'
+    df_counties.loc[df_counties['orig_name'] == 'koblenz', 'simp_name'] = 'coblenz'
+    df_counties.loc[df_counties['orig_name'] == 'sanct goar', 'simp_name'] = 'sankt goarshausen'
+    df_counties.loc[df_counties['orig_name'] == 'kochem', 'simp_name'] = 'cochem'
+    df_counties.loc[df_counties['orig_name'] == 'krefeld stadtkreis', 'simp_name'] = 'crefeld'
+    df_counties.loc[df_counties['orig_name'] == 'krefeld landkreis', 'simp_name'] = 'crefeld'
+    df_counties.loc[df_counties['orig_name'] == 'koeln landkreis', 'simp_name'] = 'cöln'
+    df_counties.loc[df_counties['orig_name'] == 'koeln stadtkreis', 'simp_name'] = 'cöln'
+    df_counties.loc[df_counties['orig_name'] == 'lyk', 'simp_name'] = 'lyck'
+
+
+    # extract different forms of the name
     df_counties['simp_name'] = df_counties['simp_name'].str.replace(r'^pr\.\s', '')
     df_counties['simp_name'] = df_counties['simp_name'].str.replace(r'^st\.', 'sankt')
     df_counties['simp_name'] = df_counties['simp_name'].str.replace(r'^.*-.*-.*\s', '')
+    df_counties['simp_name'] = df_counties['simp_name'].str.replace(r'oe','ö')
+    df_counties['simp_name'] = df_counties['simp_name'].str.replace(r'ue','ü')
     pattern = '\sin\sder\s|\san\sder\s|\sin\s|\sam\s|\sa\.d\.\s|\s|-'
     df_counties[['simp_name','alt_name']] = df_counties['simp_name'].str.split(pattern, expand=True, n=1)
 
     # manually add alternate names found by inspection:
     df_counties.loc[df_counties['orig_name']=='fraustadt','man_name'] = 'lissa'
     df_counties.loc[df_counties['orig_name']=='konitz','man_name'] = 'tuchel'
+    df_counties.loc[df_counties['orig_name']=='hildesheim','man_name'] = 'peine'
+
 
     # strip all [name, alt_name, suffix] of white spaces
     # df_master.replace(np.nan, '', regex=True)
@@ -189,13 +105,15 @@ def gazetter_data(county_names, df):
     # else:
     #     df_county = df[df['Kr'].str.startswith(county, na=False)  | df['AG'].str.startswith("Fraustadt", na=False)]
 
-    df_county = df[df['Kr'].str.startswith(county_names[0], na=False) | df['AG'].str.startswith(county_names[0], na=False)]
+    df_county = df[df['Kr'].str.startswith(county_names[0].title(), na=False) | df['AG'].str.startswith(county_names[0].title(), na=False)]
     for name in county_names:
         # skip first
         if name == county_names[0]:
             continue
-        df_temp = df[df['Kr'].str.startswith(name, na=False) | df['AG'].str.startswith(name, na=False)]
+        df_temp = df[df['Kr'].str.startswith(name.title(), na=False) | df['AG'].str.startswith(name.title(), na=False)]
         df_county = pd.concat([df_county,df_temp], ignore_index=True)
+
+    #df_county = df
 
     # duplicated columns: keep only first
     df_county = df_county.groupby(['id']).first().reset_index()
@@ -280,7 +198,9 @@ def census_data(county, df_census):
     # !! To-Do: Improve string split Pattern
     # Improve on split pattern for locations with appendix to accomodate "all" cases:
     # `pattern = \sa\/|\sunt\s|\sa\s|\sunterm\s|\si\/|\si\s|\sb\s|\sin\s|\sbei\s|\sam\s|\san\s`
-    df_county = df_census[df_census['county']==county.lower()]
+
+    # don't have a better way to deal with the exception atm
+    df_county = df_census[df_census['county']==county]
 
     # upload cleaned data
     #df_master = pd.read_excel(os.path.join(wdir, 'PrussianCensus1871/Fraustadt', 'Posen-Fraustadt-kreiskey-134.xlsx'))
@@ -470,6 +390,75 @@ def merge_data(df_county_gaz, df_county_cens):
 
     return df_combined, exact_match_perc, df_join
 
+def merge_STATA(master, using, how='outer', on=None, left_on=None, right_on=None, indicator=True,
+                suffixes=('_master', '_using'), drop=None, keep=None, drop_merge=False):
+    """
+    function that imitates STATA's merge command and initializes most options of pandas DataFrame merge.
+    ----
+    Requirements: library "tabulate"
+    ----
+    Parameters:
+    master:        Master DataFrame
+    using:         Using DataFrame
+    how:           Type of merge to be performed: default is set to ‘outer‘ (as in STATA).
+                   Other options are equivalent to pd.merge, i.e. {‘left’, ‘right’, ‘inner’}.
+    on:            Column or index level names to join on. These must be found in both DataFrames.
+    left_on:       Column or index level names to join on in the left (master) DataFrame
+    right_on:      Column or index level names to join on in the right (using) DataFrame.
+    indicator:     If True (default) adds column “_merge” to output DataFrame with information
+                   on the source of each row.
+    suffixes:      Suffix to apply to overlapping column names in the left (master) and right
+                   (using) side. Default set to {‘_master’, ‘_master’}
+    drop:          If specified, rows labeled as either “left_only” (STATA: _merge==1),
+                   “right_only” (_merge==2), or “both” (_merge==3) are dropped after the merge.
+                   By default, no rows are dropped.
+    keep:          If specified, only rows labeled as either “left_only” (STATA: _merge==1),
+                   “right_only” (_merge==2), or “both” (_merge==3) are kept after the merge.
+                   By default, all rows are kept.
+    drop_merge:    Drop column _merge if True
+    ----
+    Return:        (Merged) Dataframe
+
+    """
+
+    if left_on == None and right_on == None:  # if variables the same in both df
+        merge = master.merge(using, how=how, on=on, indicator=indicator, suffixes=suffixes)
+
+    if on == None:
+        merge = master.merge(using, how=how, left_on=left_on, right_on=right_on, indicator=indicator, suffixes=suffixes)
+
+    if left_on == None and right_on == None and on == None:
+        print("Either ‘on‘ or {‘left_on’, ‘right_on’} have to be defined")
+
+    if indicator == True:
+        # define variables needed for
+        result = merge["_merge"].value_counts()
+        not_matched_master = result["left_only"]  # STATA: _merge==1
+        not_matched_using = result["right_only"]  # STATA: _merge==2
+        matched = result["both"]  # STATA: _merge==3
+        # define "STATA" merge table
+        table = [['not matched', '', not_matched_master + not_matched_using],
+                 ['', 'from master', not_matched_master],
+                 ['', 'from using', not_matched_using],
+                 ['matched', '', matched]]
+        try:
+            print(tabulate(table, headers=['Result', '', '# of obs.'], tablefmt="fancy_grid"))
+        except:
+            print("Error: Merge table could not be compiled! Please import library tabulate")
+    if drop != None:
+        merge = merge[~merge['_merge'] == drop]  # drop rows that equal drop expression
+        print("Drop if {}".format(drop))
+
+    if keep != None:
+        merge = merge[merge['_merge'] == keep]  # keep rows that equal keep expression
+        print("Keep if {}".format(keep))
+
+    if drop_merge:
+        merge.drop(['_merge'], axis=1, inplace=True)
+
+    return merge
+
+
 """---------------------------- ANALYSIS OF UNMATCHED ENTRIES - LEVENSHTEIN DISTANCE ---------------------------"""
 def lev_dist_calc(df_county_cens, df_county_gaz, df_merged, county):
     # Meyers Gazetter: Which locations were not matched?
@@ -508,6 +497,54 @@ def lev_dist_calc(df_county_cens, df_county_gaz, df_merged, county):
         unmatched_census_df.loc[unmatched_census_df['lev_match'] == match[0], 'lev_match'] = match[1]
 
     return unmatched_census_df, levenshtein_matches
+
+def levenshtein(seq1, seq2):
+    """returns the minimum number of changes (replacement, insertion, deletion) required to convert between two stings.
+    code taken from: https://stackabuse.com/levenshtein-distance-and-text-similarity-in-python/#:~:text=The%20Levenshtein%20Distance,-This%20method%20was&text=The%20distance%20value%20describes%20the,strings%20with%20an%20unequal%20length."""
+    size_x = len(seq1) + 1
+    size_y = len(seq2) + 1
+    matrix = np.zeros((size_x, size_y))
+    for x in range(size_x):
+        matrix[x, 0] = x
+    for y in range(size_y):
+        matrix[0, y] = y
+
+    for x in range(1, size_x):
+        for y in range(1, size_y):
+            if seq1[x - 1] == seq2[y - 1]:
+                matrix[x, y] = min(
+                    matrix[x - 1, y] + 1,
+                    matrix[x - 1, y - 1],
+                    matrix[x, y - 1] + 1
+                )
+            else:
+                matrix[x, y] = min(
+                    matrix[x - 1, y] + 1,
+                    matrix[x - 1, y - 1] + 1,
+                    matrix[x, y - 1] + 1
+                )
+    # print (matrix)
+    return (matrix[size_x - 1, size_y - 1])
+
+def lev_array(unmatched_gazetter_name, unmatched_census_name):
+    """
+    algorithm which calculates the levenshtein distance for all unmatches census names and gazetter names beginning with
+    the same letter. If the ratio of the levenshtein distance to the length of the census_name is less than the a
+    certain value (0.3 at the moment) the pair is added to an output array.
+    output is list of lists: [[census_name, closest gazzeter_name, levenshtein ratio]]
+    """
+    levenshtein_array = []
+    for census_name in unmatched_census_name:
+        if census_name == 'nan' or len(census_name) == 0:
+            continue
+        for gazetter_name in unmatched_gazetter_name:
+            if gazetter_name[0] != census_name[0]:
+                continue
+            ldist = levenshtein(gazetter_name, census_name)
+            if ldist / len(census_name) < 0.3:
+                entry = [census_name, gazetter_name, ldist / len(census_name)]
+                levenshtein_array.append(entry)
+    return levenshtein_array
 
 
 """ ------------------------------- CONDUCT MERGE ROUNDS BASED ON LEVENSTEIN DISTANCE ---------------------------- """
@@ -586,6 +623,7 @@ def write_merged_data(df_merged, df_lev_merged, county):
         index=False)
 
     """ ------------------------------------ CALCULATE QUALITY STATISTICS ----------------------------------------"""
+
 def qual_stat(exact_match_perc, df_merge_nodups, county):
     print(f'''\n{exact_match_perc:.2f}% of locations have match with the same name''')
     match_perc = 100 * (df_merge_nodups.shape[0] - df_merge_nodups[df_merge_nodups['id'].isnull()].shape[0]) / \
@@ -654,19 +692,29 @@ df_gazetter = pd.read_pickle(WORKING_DIRECTORY + "df_pickle")
 print(f'The number of entries in Meyer Gazetter is: {df_gazetter.shape[0]}')
 
 # build up list of possible county names to be searched against gazetter.
+cont_flag = True
+count = 0
 for county in df_counties['orig_name']:
+    count+=1
+    print(count)
+    # if county=='lyk':
+    #     cont_flag = False
+    # if cont_flag:
+    #     continue
     current_county = df_counties.loc[df_counties['orig_name'] == county]
     current_county=current_county.reset_index()
     current_county.drop(columns=["index"], inplace=True)
     current_county_names = []
     for name in current_county.loc[0]:
-        if name==None or str(name)=='nan':
+        if name==None or str(name)=='nan' or name in current_county_names:
             continue
-        if name.title() not in current_county_names:
-            current_county_names.append(name.title())
+        current_county_names.append(name)
+
+    print(f'''\nMATCHING FOR: {current_county_names[0]}\n''')
     print(current_county_names)
 
-    #if county == 'fraustadt' or county == 'konitz':
+    #if county == 'koenigsberg' or county == 'koenigsberg stadt':
+
     # extract county name that appears in the census
     county = current_county_names[0]
 
@@ -678,6 +726,12 @@ for county in df_counties['orig_name']:
 
     # merge census data
     df_merged, exact_match_perc, df_join = merge_data(df_gazetter_county, df_census_county)
+
+    # prepare for total output write to file
+    # df_merged.drop(columns=["_merge"], inplace=True)
+    # df_merged.sort_values(by="loc_id", inplace=True)
+    # df_merged.to_excel(os.path.join(WORKING_DIRECTORY, 'OutputDodge/', county, 'Merged_Data_' + county + '.xlsx'),
+    #                    index=False)
 
     # complete levenshtein distance calulations
     df_unmatched_census, levenshtein_matches = lev_dist_calc(df_census_county, df_gazetter_county, df_merged, county)
@@ -693,6 +747,8 @@ for county in df_counties['orig_name']:
 
     # calculate quality stats
     qual_stat(exact_match_perc, df_merged_nodups, county)
+
+
 
 
 """
