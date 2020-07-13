@@ -285,9 +285,10 @@ def census_data(county):
     df_county['suffix'] = df_county['suffix'].str.replace(r'-', ' ')
     df_county['suffix'] = df_county['suffix'].str.replace('Nied.', 'Nieder')
     df_county['suffix'] = df_county['suffix'].str.replace('Niederr', 'Nieder')
-    # drop substring after parantheses or ',' from name
+    # drop substring after parantheses, ',' or a space from name
     df_county['name'] = df_county['name'].str.replace(r'\(.+', '')
     df_county['name'] = df_county['name'].str.replace(r',.+', '')
+    df_county['name'] = df_county['name'].str.replace(r'\s.+', '')
     # account for cases with appendixes such as Neuguth bei Reisen and Neuguth bei Fraustadt
     pattern = '\sa\/|\sunt\s|\sa\s|\sunterm\s|\si\/|\si\s|\sb\s|\sin\s|\sbei\s|\sam\s|\san\s'
     split = df_county['name'].str.split(pattern, expand=True)
