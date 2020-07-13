@@ -142,25 +142,38 @@ def lev_array(unmatched_gazetter_name, unmatched_census_name):
                 levenshtein_array.append(entry)
     return levenshtein_array
 
+""" ------------------------------------ EXTRACT COUNTY NAMES FROM CENSUS -------------------------------------"""
+def extract_county_names(df_census):
+    # extract all counties:
+    counties = []
+    for county in df_census['county']:
+        if county in counties:
+            continue
+        else:
+            counties.append(county)
+
+    # clean county names and extract names to be searched against meyers gazetter
+    df_counties = pd.DataFrame(counties, columns = ['orig_name'])
+    df_counties['simp_name'] = df_counties['orig_name']
+    df_counties['simp_name'] = df_counties['simp_name'].str.replace(r'^pr\.\s', '')
+    df_counties['simp_name'] = df_counties['simp_name'].str.replace(r'^st\.', 'sankt')
+    pattern = '\sin\sder\s|\san\sder\s|\sin\s|\sam\s|\sa\.d\.\s|\s|-'
+    df_counties[['simp_name','alt_name']] = df_counties['simp_name'].str.split(pattern, expand=True, n=1)
+
+    # manually add alternate names found by inspection:
+    df_counties.loc[df_counties['orig_name']=='fraustadt','man_name'] = 'lissa'
+    df_counties.loc[df_counties['orig_name']=='konitz','man_name'] = 'tuchel'
+
+    # strip all [name, alt_name, suffix] of white spaces
+    # df_master.replace(np.nan, '', regex=True)
+    for c in ['simp_name']:
+        df_counties[c] = df_counties[c].str.strip()
+
+    return df_counties
 
 """ ----------------------------------- LOAD GAZETTE DATA AND CLEAN FOR MERGE -----------------------------------"""
 
-def gazetter_data(county_names):
-    # load in json file of (combinded) Gazetter entries
-    # commented out as saving of df means it need only run once
-
-    # file_path = os.path.join(wdir, 'Matching', 'json_merge.json')
-    # with open(file_path, 'r', encoding="utf8") as json_file:
-    #     data = json.load(json_file)
-    #     df = json_normalize(data)
-    #     print(f'The number of entries in Meyer Gazetter is: {df.shape[0]}')
-    #
-    # # save df to file so that we do not need to load json file again.
-    # df.to_pickle(wdir+"df_pickle")
-
-    # load saved data frame
-    df = pd.read_pickle(WORKING_DIRECTORY + "df_pickle")
-    print(f'The number of entries in Meyer Gazetter is: {df.shape[0]}')
+def gazetter_data(county_names, df):
 
     # First, let's see how many cities have Fraustadt in any of the columns (drop duplicates created by this technique).
     # next check which rows have Fraustadt in any of the "abbreviation columns"
@@ -621,19 +634,66 @@ def qual_stat(exact_match_perc, df_merge_nodups, county):
 
 # load saved data frame containing census file
 df_census = pd.read_pickle(WORKING_DIRECTORY+"census_df_pickle")
-# extract all counties:
-counties = []
-for county in df_census['county']:
-    if county in counties:
-        continue
-    else:
-        counties.append(county)
-print(counties)
+
+# extract county name data frame from census
+df_counties = extract_county_names(df_census)
+
+# load in json file of (combinded) Gazetter entries
+# commented out as saving of df means it need only run once
+# file_path = os.path.join(wdir, 'Matching', 'json_merge.json')
+# with open(file_path, 'r', encoding="utf8") as json_file:
+#     data = json.load(json_file)
+#     df = json_normalize(data)
+#     print(f'The number of entries in Meyer Gazetter is: {df.shape[0]}')
+# # save df to file so that we do not need to load json file again.
+# df.to_pickle(wdir+"df_pickle")
+
+# load saved data frame
+df_gazetter = pd.read_pickle(WORKING_DIRECTORY + "df_pickle")
+print(f'The number of entries in Meyer Gazetter is: {df_gazetter.shape[0]}')
+
+# build up list of possible county names to be searched against gazetter.
+for county in df_counties['orig_name']:
+    current_county = df_counties.loc[df_counties['orig_name'] == county]
+    current_county=current_county.reset_index()
+    current_county.drop(columns=["index"], inplace=True)
+    current_county_names = []
+    for name in current_county.loc[0]:
+        if name==None or str(name)=='nan':
+            continue
+        if name.title() not in current_county_names:
+            current_county_names.append(name.title())
+
+    if county == 'fraustadt' or county == 'konitz':
+        # extract county name from census
+        county = current_county_names[0]
+
+        # gather and clean gazetter entires
+        df_gazetter_county = gazetter_data(current_county_names,df_gazetter)
+
+        # gather and clean census
+        df_census_county = census_data(county, df_census)
+
+        # merge census data
+        df_merged, exact_match_perc, df_join = merge_data(df_gazetter_county, df_census_county)
+
+        # complete levenshtein distance calulations
+        df_unmatched_census, levenshtein_matches = lev_dist_calc(df_census_county, df_gazetter_county, df_merged, county)
+
+        # merge based on levenshtein distance
+        df_merged, df_lev_merged = lev_merge(df_gazetter_county, df_merged, df_unmatched_census)
+
+        # write to file
+        write_merged_data(df_merged, df_lev_merged, county)
+
+        # drop duplicates from output arbitratilly. !! Need a method.
+        df_merged_nodups = df_merged.drop_duplicates(subset=['loc_id'], keep='last')
+
+        # calculate quality stats
+        qual_stat(exact_match_perc, df_merged_nodups, county)
 
 
-
-
-
+"""
 # set county name to be run
 county = "Konitz"
 alt_county = "Tuchel"
@@ -666,5 +726,5 @@ df_merged_nodups = df_merged.drop_duplicates(subset=['loc_id'], keep='last')
 # calculate quality stats
 qual_stat(exact_match_perc, df_merged_nodups, county)
 
-
+"""
 
