@@ -6,6 +6,7 @@ import numpy as np
 from tabulate import tabulate
 import re
 import math
+import operator
 
 pd.set_option("display.max_rows", None, "display.max_columns", None)
 
@@ -35,5 +36,6 @@ for bad_match in bad_matches:
             AG_count[county]+=1
         else:
             AG_count[county] = 1
-
-    print(AG_count)
+    #AG_count = {k: v for k, v in sorted(x.items(), key=lambda item: item[1])}
+    sorted_AG = sorted(AG_count.items(), key=lambda x: x[1], reverse=True)
+    print(sorted_AG)

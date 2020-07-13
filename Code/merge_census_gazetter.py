@@ -697,12 +697,20 @@ quality_data = pd.read_excel(os.path.join(WORKING_DIRECTORY, 'Output/', 'MergeDe
 bad_match_df = quality_data[quality_data['match_perc']<70]
 bad_matches = set()
 for bad_match in bad_match_df['county']:
-    bad_matches.add(bad_matches)
+    bad_matches.add(bad_match)
+print(bad_matches)
+print(len(bad_matches))
 
 # build up list of possible county names to be searched against gazetter.
+count = 0
 for county in df_counties['orig_name']:
     if county not in bad_matches:
         continue
+    if os.path.exists(os.path.join(WORKING_DIRECTORY, 'OutputDodge/', county)):
+        count+=1
+        print(count)
+        continue
+
     current_county = df_counties.loc[df_counties['orig_name'] == county]
     current_county=current_county.reset_index()
     current_county.drop(columns=["index"], inplace=True)
@@ -727,11 +735,13 @@ for county in df_counties['orig_name']:
     # merge census data
     df_merged, exact_match_perc, df_join = merge_data(df_gazetter_county, df_census_county)
 
+    if not os.path.exists(os.path.join(WORKING_DIRECTORY, 'OutputDodge/', county)):
+        os.makedirs(os.path.join(WORKING_DIRECTORY, 'OutputDodge/', county))
+
     # prepare for total output write to file
     df_merged.drop(columns=["_merge"], inplace=True)
     df_merged.sort_values(by="loc_id", inplace=True)
-    df_merged.to_excel(os.path.join(WORKING_DIRECTORY, 'OutputDodge/', county, 'Merged_Data_' + county + '.xlsx'),
-                       index=False)
+    df_merged.to_excel(os.path.join(WORKING_DIRECTORY, 'OutputDodge/', county, 'Merged_Data_' + county + '.xlsx'),index=False)
 
 """
     # complete levenshtein distance calulations
