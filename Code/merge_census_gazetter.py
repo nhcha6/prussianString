@@ -157,6 +157,7 @@ def extract_county_names(df_census):
     df_counties['simp_name'] = df_counties['orig_name']
     df_counties['simp_name'] = df_counties['simp_name'].str.replace(r'^pr\.\s', '')
     df_counties['simp_name'] = df_counties['simp_name'].str.replace(r'^st\.', 'sankt')
+    df_counties['simp_name'] = df_counties['simp_name'].str.replace(r'^.*-.*-.*\s', '')
     pattern = '\sin\sder\s|\san\sder\s|\sin\s|\sam\s|\sa\.d\.\s|\s|-'
     df_counties[['simp_name','alt_name']] = df_counties['simp_name'].str.split(pattern, expand=True, n=1)
 
@@ -663,34 +664,35 @@ for county in df_counties['orig_name']:
             continue
         if name.title() not in current_county_names:
             current_county_names.append(name.title())
+    print(current_county_names)
 
-    if county == 'fraustadt' or county == 'konitz':
-        # extract county name from census
-        county = current_county_names[0]
+    #if county == 'fraustadt' or county == 'konitz':
+    # extract county name that appears in the census
+    county = current_county_names[0]
 
-        # gather and clean gazetter entires
-        df_gazetter_county = gazetter_data(current_county_names,df_gazetter)
+    # gather and clean gazetter entires
+    df_gazetter_county = gazetter_data(current_county_names,df_gazetter)
 
-        # gather and clean census
-        df_census_county = census_data(county, df_census)
+    # gather and clean census
+    df_census_county = census_data(county, df_census)
 
-        # merge census data
-        df_merged, exact_match_perc, df_join = merge_data(df_gazetter_county, df_census_county)
+    # merge census data
+    df_merged, exact_match_perc, df_join = merge_data(df_gazetter_county, df_census_county)
 
-        # complete levenshtein distance calulations
-        df_unmatched_census, levenshtein_matches = lev_dist_calc(df_census_county, df_gazetter_county, df_merged, county)
+    # complete levenshtein distance calulations
+    df_unmatched_census, levenshtein_matches = lev_dist_calc(df_census_county, df_gazetter_county, df_merged, county)
 
-        # merge based on levenshtein distance
-        df_merged, df_lev_merged = lev_merge(df_gazetter_county, df_merged, df_unmatched_census)
+    # merge based on levenshtein distance
+    df_merged, df_lev_merged = lev_merge(df_gazetter_county, df_merged, df_unmatched_census)
 
-        # write to file
-        write_merged_data(df_merged, df_lev_merged, county)
+    # write to file
+    write_merged_data(df_merged, df_lev_merged, county)
 
-        # drop duplicates from output arbitratilly. !! Need a method.
-        df_merged_nodups = df_merged.drop_duplicates(subset=['loc_id'], keep='last')
+    # drop duplicates from output arbitratilly. !! Need a method.
+    df_merged_nodups = df_merged.drop_duplicates(subset=['loc_id'], keep='last')
 
-        # calculate quality stats
-        qual_stat(exact_match_perc, df_merged_nodups, county)
+    # calculate quality stats
+    qual_stat(exact_match_perc, df_merged_nodups, county)
 
 
 """
