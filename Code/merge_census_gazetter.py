@@ -145,7 +145,7 @@ def lev_array(unmatched_gazetter_name, unmatched_census_name):
 
 """ ----------------------------------- LOAD GAZETTE DATA AND CLEAN FOR MERGE -----------------------------------"""
 
-def gazetter_data(county, alt_county=None):
+def gazetter_data(county_names):
     # load in json file of (combinded) Gazetter entries
     # commented out as saving of df means it need only run once
 
@@ -169,11 +169,19 @@ def gazetter_data(county, alt_county=None):
     # two methods for extraction are seen, one that uses only the Kr column for the desired country and one that searches
     # for any exact reference to the county in any column
     # df_fraustadt = df[(df.values=="Fraustadt")|(df.values=="Lissa")]
-    if alt_county != None:
-        df_county = df[df['Kr'].str.startswith(county, na=False) | df['Kr'].str.startswith(alt_county, na=False) | df[
-        'AG'].str.startswith(county, na=False) | df['AG'].str.startswith(alt_county, na=False)]
-    else:
-        df_county = df[df['Kr'].str.startswith(county, na=False)  | df['AG'].str.startswith("Fraustadt", na=False)]
+    # if alt_county != None:
+    #     df_county = df[df['Kr'].str.startswith(county, na=False) | df['Kr'].str.startswith(alt_county, na=False) | df[
+    #     'AG'].str.startswith(county, na=False) | df['AG'].str.startswith(alt_county, na=False)]
+    # else:
+    #     df_county = df[df['Kr'].str.startswith(county, na=False)  | df['AG'].str.startswith("Fraustadt", na=False)]
+
+    df_county = df[df['Kr'].str.startswith(county_names[0], na=False) | df['AG'].str.startswith(county_names[0], na=False)]
+    for name in county_names:
+        # skip first
+        if name == county_names[0]:
+            continue
+        df_temp = df[df['Kr'].str.startswith(name, na=False) | df['AG'].str.startswith(name, na=False)]
+        df_county = pd.concat([df_county,df_temp], ignore_index=True)
 
     # duplicated columns: keep only first
     df_county = df_county.groupby(['id']).first().reset_index()
@@ -253,14 +261,11 @@ def gazetter_data(county, alt_county=None):
     return df_county
 
 """ ----------------------------LOAD CLEANED CENSUS DATA AND APPLY STRING CLEANING -----------------------------------"""
-def census_data(county):
+def census_data(county, df_census):
     # Load Posen-Fraustadt-kreiskey-134.xlsx` file we want to match with Gazetter entries. Clean file before merge!
     # !! To-Do: Improve string split Pattern
     # Improve on split pattern for locations with appendix to accomodate "all" cases:
     # `pattern = \sa\/|\sunt\s|\sa\s|\sunterm\s|\si\/|\si\s|\sb\s|\sin\s|\sbei\s|\sam\s|\san\s`
-
-    # load saved data frame
-    df_census = pd.read_pickle(WORKING_DIRECTORY+"census_df_pickle")
     df_county = df_census[df_census['county']==county.lower()]
 
     # upload cleaned data
@@ -612,18 +617,36 @@ def qual_stat(exact_match_perc, df_merge_nodups, county):
     df_merge_details.to_excel(os.path.join(WORKING_DIRECTORY, 'Output/', 'MergeDetails.xlsx'), index=False)
 
 
+
+
+# load saved data frame containing census file
+df_census = pd.read_pickle(WORKING_DIRECTORY+"census_df_pickle")
+# extract all counties:
+counties = []
+for county in df_census['county']:
+    if county in counties:
+        continue
+    else:
+        counties.append(county)
+print(counties)
+
+
+
+
+
 # set county name to be run
 county = "Konitz"
 alt_county = "Tuchel"
+county_names = [county, alt_county]
 
 # county = "Fraustadt"
 # alt_county = "Lissa"
 
 # gather and clean gazetter entires
-df_gazetter = gazetter_data(county,alt_county)
+df_gazetter = gazetter_data(county_names)
 
 # gather and clean census
-df_census = census_data(county)
+df_census = census_data(county, df_census)
 
 # merge census data
 df_merged, exact_match_perc, df_join = merge_data(df_gazetter, df_census)
