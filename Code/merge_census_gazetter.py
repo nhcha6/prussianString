@@ -79,6 +79,15 @@ def extract_county_names(df_census):
     df_counties.loc[df_counties['orig_name']=='fraustadt','man_name'] = 'lissa'
     df_counties.loc[df_counties['orig_name']=='konitz','man_name'] = 'tuchel'
     df_counties.loc[df_counties['orig_name']=='hildesheim','man_name'] = 'peine'
+    df_counties.loc[df_counties['orig_name']=='osterode a.H.','man_name'] = 'duderstadt'
+    df_counties.loc[df_counties['orig_name']=='wennigsen','man_name'] = 'springe'
+    df_counties.loc[df_counties['orig_name']=='zellerfeld','man_name'] = 'ilfeld'
+    df_counties.loc[df_counties['orig_name']=='pleschen','man_name'] = 'jarotschin'
+    df_counties.loc[df_counties['orig_name']=='halberstadt','man_name'] = 'osterwieck'
+    df_counties.loc[df_counties['orig_name']=='kosten','man_name'] = 'schmiegel'
+    df_counties.loc[df_counties['orig_name']=='eiderstedt','man_name'] = 'garding'
+    df_counties.loc[df_counties['orig_name']=='weissenfels','man_name'] = 'hohenmölsen'
+    df_counties.loc[df_counties['orig_name']=='fallingbostel','man_name'] = 'soltau'
 
 
     # strip all [name, alt_name, suffix] of white spaces
