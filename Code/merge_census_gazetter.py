@@ -465,7 +465,7 @@ def lev_dist_calc(df_county_cens, df_county_gaz, df_merged, county):
         os.makedirs(os.path.join(WORKING_DIRECTORY, 'Output/', county))
 
 
-    df_remainder.to_excel(os.path.join(WORKING_DIRECTORY, 'Output/', county, 'Gazetter_Remainder.xlsx'),
+    df_remainder.to_excel(os.path.join(WORKING_DIRECTORY, 'Output/', county, 'Gazetter_Remainder_' + county + '.xlsx'),
                           index=False)
 
     # extract unmatched names from census data:
@@ -556,14 +556,14 @@ def write_merged_data(df_merged, df_lev_merged, county):
     df_merged.drop(columns=["_merge"], inplace=True)
     df_merged.sort_values(by="loc_id", inplace=True)
     df_merged.drop(columns=["lev_match"], inplace=True)
-    df_merged.to_excel(os.path.join(WORKING_DIRECTORY, 'Output/', county, 'Merged_Data.xlsx'),
+    df_merged.to_excel(os.path.join(WORKING_DIRECTORY, 'Output/', county, 'Merged_Data_' + county + '.xlsx'),
                        index=False)
     # prepare for levenshtein matches write to file
     df_lev_merged.drop(columns=["_merge"], inplace=True)
     df_lev_merged.drop(columns=["lev_match"], inplace=True)
     df_lev_merged.sort_values(by="loc_id", inplace=True)
     df_lev_merged.to_excel(
-        os.path.join(WORKING_DIRECTORY, 'Output', county, 'Lev_Merged_Data.xlsx'),
+        os.path.join(WORKING_DIRECTORY, 'Output', county, 'Lev_Merged_Data_' + county + '.xlsx'),
         index=False)
 
     """ ------------------------------------ CALCULATE QUALITY STATISTICS ----------------------------------------"""
