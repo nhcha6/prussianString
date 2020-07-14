@@ -124,25 +124,7 @@ fraustadt_merged_df = fraustadt_merged_df.reindex(index_in_county)
 fraustadt_merged_df['lat'] = np.random.normal(fraustadt_merged_df['lat'],0.01)
 fraustadt_merged_df['lng'] = np.random.normal(fraustadt_merged_df['lng'],0.01)
 
-# read in census data to plot something
-# census_df = pd.read_excel(wdir+"PrussianCensus1871/PrussianCensus1871.xlsx")
-# census_df.to_pickle(wdir+"census_df_pickle")
-
-# load saved data frame
-census_df = pd.read_pickle(wdir+"census_df_pickle")
-
-# extract county census data
-fraustadt_census_df = census_df[census_df['county']==county]
 data_headers = ['locname','type','pop_male', 'pop_female', 'pop_tot','protestant','catholic','other_christ', 'jew', 'other_relig', 'age_under_ten', 'literate', 'school_noinfo', 'illiterate']
-fraustadt_census_df = fraustadt_census_df[data_headers]
-
-# add to existing county data frame
-df_join = merge_STATA(fraustadt_merged_df, fraustadt_census_df, how='left', left_on=['orig_name','class'], right_on=['locname','type'])
-fraustadt_merged_df = df_join[df_join['_merge']=='both']
-fraustadt_merged_df.drop(columns=["_merge"], inplace=True)
-fraustadt_merged_df.drop(columns=["type"], inplace=True)
-fraustadt_merged_df.drop(columns=["locname"], inplace=True)
-fraustadt_merged_df.sort_values(by="loc_id", inplace=True)
 
 # convert all data to proportion of population
 for data in data_headers:
@@ -155,11 +137,14 @@ fraustadt_merged_gdf = gpd.GeoDataFrame(fraustadt_merged_df, geometry=gpd.points
 fraustadt_merged_gdf.crs = {'init': 'epsg:4326'}
 
 # plot
-ax = gplt.voronoi(fraustadt_merged_gdf, clip=county_gdf.simplify(0.001))
-gplt.pointplot(fraustadt_merged_gdf, ax=ax)
+# ax = gplt.voronoi(fraustadt_merged_gdf, clip=county_gdf.simplify(0.001))
+# gplt.pointplot(fraustadt_merged_gdf, ax=ax)
+#
+# gplt.voronoi(fraustadt_merged_gdf, hue='protestant', clip=county_gdf.simplify(0.001), legend = True)
+# gplt.voronoi(fraustadt_merged_gdf, hue='literate', clip=county_gdf.simplify(0.001), legend = True)
 
-gplt.voronoi(fraustadt_merged_gdf, hue='protestant', clip=county_gdf.simplify(0.001), legend = True)
-gplt.voronoi(fraustadt_merged_gdf, hue='literate', clip=county_gdf.simplify(0.001), legend = True)
+ax = gplt.polyplot(county_gdf)
+gplt.polyplot(county_gdf.buffer(0.05),ax=ax)
 
 plt.show()
 
