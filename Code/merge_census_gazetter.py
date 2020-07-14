@@ -175,7 +175,6 @@ def gazetter_data(county_names, df, map_names):
     # find gazetter entries from map:
     df_map_county = gazetter_data_map(df_gazetter, map_names)
 
-
     # concatenate that two:
     df_county = pd.concat([df_county, df_map_county], ignore_index=True)
     #df_county = df_map_county
@@ -334,6 +333,9 @@ def census_data(county, df_census):
 
     # now we need to clean location names
     df_county['name'] = df_county['orig_name']
+    # adjustment for big cities with strange naming conventions
+    if df_county.shape[0]==1:
+        df_county = df_county.assign(name=county)
     # extract alternative writing of location name: in parantheses after =
     df_county['alt_name'] = df_county['name'].str.extract(r'.+\(=(.*)\).*', expand=True)
     # extract alternative name without appendixes such as bei in
@@ -346,6 +348,7 @@ def census_data(county, df_census):
     df_county['name'] = df_county['name'].str.replace(r'\(.+', '')
     df_county['name'] = df_county['name'].str.replace(r',.+', '')
     df_county['name'] = df_county['name'].str.replace(r'\s.+', '')
+
     # account for cases with appendixes such as Neuguth bei Reisen and Neuguth bei Fraustadt
     pattern = '\sa\/|\sunt\s|\sa\s|\sunterm\s|\si\/|\si\s|\sb\s|\sin\s|\sbei\s|\sam\s|\san\s'
     split = df_county['name'].str.split(pattern, expand=True)
@@ -824,7 +827,10 @@ count = 0
 for county in df_counties['orig_name']:
     count+=1
     print(count)
-    if county!='kolberg-koerlin':
+    if county=='liegnitz landkreis':
+        cont_flag = False
+        continue
+    if cont_flag:
         continue
     current_county = df_counties.loc[df_counties['orig_name'] == county]
     current_county=current_county.reset_index()
