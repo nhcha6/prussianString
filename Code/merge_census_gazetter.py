@@ -159,28 +159,16 @@ def extract_county_names(df_census):
 
 def gazetter_data(county_names, df):
 
-    # First, let's see how many cities have Fraustadt in any of the columns (drop duplicates created by this technique).
-    # next check which rows have Fraustadt in any of the "abbreviation columns"
-    # search for lissa too, because fraustadt was split to Lissa and Frastadt after the census but before the Meyers
-    # Gazetter data was compiled.
-    # two methods for extraction are seen, one that uses only the Kr column for the desired country and one that searches
-    # for any exact reference to the county in any column
-    # df_fraustadt = df[(df.values=="Fraustadt")|(df.values=="Lissa")]
-    # if alt_county != None:
-    #     df_county = df[df['Kr'].str.startswith(county, na=False) | df['Kr'].str.startswith(alt_county, na=False) | df[
-    #     'AG'].str.startswith(county, na=False) | df['AG'].str.startswith(alt_county, na=False)]
-    # else:
-    #     df_county = df[df['Kr'].str.startswith(county, na=False)  | df['AG'].str.startswith("Fraustadt", na=False)]
-
-    df_county = df[df['Kr'].str.startswith(county_names[0].title(), na=False) | df['AG'].str.startswith(county_names[0].title(), na=False)]
+    # initial entry to start dataframe
+    df_county = df[df['Kr'].str.contains(county_names[0].title(), na=False)]
+    # loop through each potential name and if it is a substring in any column of df, add it to df_county
     for name in county_names:
-        # skip first
-        if name == county_names[0]:
-            continue
-        df_temp = df[df['Kr'].str.startswith(name.title(), na=False) | df['AG'].str.startswith(name.title(), na=False)]
-        df_county = pd.concat([df_county,df_temp], ignore_index=True)
-
-    #df_county = df
+        for header in list(df.columns.values):
+            try:
+                df_temp = df[df[header].str.contains(name.title(), na=False)]
+                df_county = pd.concat([df_county, df_temp], ignore_index=True)
+            except AttributeError:
+                continue
 
     # duplicated columns: keep only first
     df_county = df_county.groupby(['id']).first().reset_index()
@@ -764,10 +752,8 @@ count = 0
 for county in df_counties['orig_name']:
     count+=1
     print(count)
-    # if county=='lyk':
-    #     cont_flag = False
-    # if cont_flag:
-    #     continue
+    if county!='fraustadt':
+        continue
     current_county = df_counties.loc[df_counties['orig_name'] == county]
     current_county=current_county.reset_index()
     current_county.drop(columns=["index"], inplace=True)
