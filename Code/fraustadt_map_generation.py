@@ -96,29 +96,26 @@ fraustadt_merged_df = fraustadt_merged_df[fraustadt_merged_df['lat']!=0]
 county_gdf = prussia_map[prussia_map['NAME']==county_upper]
 county_gdf.index = range(0,county_gdf.shape[0])
 county_poly = county_gdf.loc[0,'geometry']
-
-# if there are multiple matches, simply take the second for now. !! still need better duplicate distinction.
-fraustadt_merged_df = fraustadt_merged_df.drop_duplicates(subset=['loc_id'], keep='first')
-print(f'''There are {fraustadt_merged_df.shape[0]} locations after duplicates are dropped''')
+county_poly_buffered = county_gdf.buffer(0.05)[0]
 
 # build up set of indices for locations that are within the county. We want to include locations that are very close,
 # even if they sit slightly outside.
-index_in_county = set()
-noisy_df = fraustadt_merged_df
-for i in range(20):
-    # generate small amount of noise to possibly push a point slightly outside, inside. The larger the deviation, the
-    # further outside a point can be. Repeat 20 times to ensure required randomness.
-    noisy_df = noisy_df.assign(lat = np.random.normal(fraustadt_merged_df['lat'],0.02))
-    noisy_df = noisy_df.assign(lng = np.random.normal(fraustadt_merged_df['lng'],0.02))
-    noisy_gdf = gpd.GeoDataFrame(noisy_df, geometry=gpd.points_from_xy(noisy_df.lng, noisy_df.lat))
-    noisy_gdf.crs = {'init': 'epsg:4326'}
-    within = noisy_gdf[noisy_gdf.within(county_poly)]
-    for j in within.index:
-        index_in_county.add(j)
-print(f'''There are {len(index_in_county)} locations within the county''')
+# index_in_county = set()
+# noisy_df = fraustadt_merged_df
+# # for i in range(20):
+# #     # generate small amount of noise to possibly push a point slightly outside, inside. The larger the deviation, the
+# #     # further outside a point can be. Repeat 20 times to ensure required randomness.
+# #     noisy_df = noisy_df.assign(lat = np.random.normal(fraustadt_merged_df['lat'],0.02))
+# #     noisy_df = noisy_df.assign(lng = np.random.normal(fraustadt_merged_df['lng'],0.02))
+# #     noisy_gdf = gpd.GeoDataFrame(noisy_df, geometry=gpd.points_from_xy(noisy_df.lng, noisy_df.lat))
+# #     noisy_gdf.crs = {'init': 'epsg:4326'}
+# #     within = noisy_gdf[noisy_gdf.within(county_poly)]
+# #     for j in within.index:
+# #         index_in_county.add(j)
+#print(f'''There are {len(index_in_county)} locations within the county''')
 
 # update to only keep the locations deemed to be within the county
-fraustadt_merged_df = fraustadt_merged_df.reindex(index_in_county)
+#fraustadt_merged_df = fraustadt_merged_df.reindex(index_in_county)
 
 # add a little bit of noise to ensure that identical data points are split slightly
 fraustadt_merged_df['lat'] = np.random.normal(fraustadt_merged_df['lat'],0.01)
@@ -135,6 +132,14 @@ for data in data_headers:
 # convert to geo data frame
 fraustadt_merged_gdf = gpd.GeoDataFrame(fraustadt_merged_df, geometry=gpd.points_from_xy(fraustadt_merged_df.lng,fraustadt_merged_df.lat))
 fraustadt_merged_gdf.crs = {'init': 'epsg:4326'}
+
+# if there are multiple matches, simply take the second for now. !! still need better duplicate distinction.
+fraustadt_merged_gdf = fraustadt_merged_gdf.drop_duplicates(subset=['loc_id'], keep='first')
+print(f'''There are {fraustadt_merged_gdf.shape[0]} locations after duplicates are dropped''')
+
+# drop those outside buffered poly
+fraustadt_merged_gdf = fraustadt_merged_gdf[fraustadt_merged_gdf.within(county_poly_buffered)]
+print(f'''There are {fraustadt_merged_gdf.shape[0]} locations within the county''')
 
 # plot
 # ax = gplt.voronoi(fraustadt_merged_gdf, clip=county_gdf.simplify(0.001))
