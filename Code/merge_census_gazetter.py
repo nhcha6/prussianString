@@ -306,8 +306,8 @@ def gazetter_data_map(df_gazetter, map_names):
         # extract county poly
         county_gdf = prussia_map[prussia_map['NAME'] == map_name]
         county_gdf.index = range(0, county_gdf.shape[0])
-        county_poly = county_gdf.loc[0, 'geometry']
-        within = gdf_gazetter[gdf_gazetter.within(county_poly)]
+        county_poly_buffered = county_gdf.buffer(0.05)[0]
+        within = gdf_gazetter[gdf_gazetter.within(county_poly_buffered)]
         index_in_county = set()
         for j in within.index:
             index_in_county.add(j)
@@ -837,9 +837,9 @@ count = 0
 for county in df_counties['orig_name']:
     count+=1
     print(count)
-    # if county = 'test'
-    #     cont_flag = False
-    #     continue
+    if county != 'fraustadt':
+        cont_flag = False
+        continue
     # if cont_flag:
     #     continue
     current_county = df_counties.loc[df_counties['orig_name'] == county]
