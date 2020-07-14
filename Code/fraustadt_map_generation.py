@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from tabulate import tabulate
 
+
 def merge_STATA(master, using, how='outer', on=None, left_on=None, right_on=None, indicator=True,
                 suffixes=('_master','_using'), drop=None, keep=None, drop_merge=False):
     """
@@ -93,7 +94,7 @@ fraustadt_merged_df = fraustadt_merged_df[fraustadt_merged_df['lat']!=0]
 
 # extract county poly
 county_gdf = prussia_map[prussia_map['NAME']==county_upper]
-county_gdf.index = [0]
+county_gdf.index = range(0,county_gdf.shape[0])
 county_poly = county_gdf.loc[0,'geometry']
 
 # if there are multiple matches, simply take the second for now. !! still need better duplicate distinction.

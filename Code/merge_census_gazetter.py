@@ -17,6 +17,9 @@ import numpy as np
 from tabulate import tabulate
 import re
 import math
+import geopandas as gpd
+import geoplot as gplt
+import matplotlib.pyplot as plt
 
 pd.set_option("display.max_rows", None, "display.max_columns", None)
 
@@ -54,15 +57,9 @@ def extract_county_names(df_census):
     df_counties.loc[df_counties['orig_name'] == 'jerichow II', 'simp_name'] = 'jericho 2'
     df_counties.loc[df_counties['orig_name'] == 'stader marschkreis', 'simp_name'] = 'kehdingen'
     df_counties.loc[df_counties['orig_name'] == 'stader geestkreis', 'simp_name'] = 'stade'
-    df_counties.loc[df_counties['orig_name'] == 'kassel stadtkreis', 'simp_name'] = 'cassel'
-    df_counties.loc[df_counties['orig_name'] == 'kassel landkreis', 'simp_name'] = 'cassel'
     df_counties.loc[df_counties['orig_name'] == 'koblenz', 'simp_name'] = 'coblenz'
     df_counties.loc[df_counties['orig_name'] == 'sanct goar', 'simp_name'] = 'sankt goarshausen'
     df_counties.loc[df_counties['orig_name'] == 'kochem', 'simp_name'] = 'cochem'
-    df_counties.loc[df_counties['orig_name'] == 'krefeld stadtkreis', 'simp_name'] = 'crefeld'
-    df_counties.loc[df_counties['orig_name'] == 'krefeld landkreis', 'simp_name'] = 'crefeld'
-    df_counties.loc[df_counties['orig_name'] == 'koeln landkreis', 'simp_name'] = 'cöln'
-    df_counties.loc[df_counties['orig_name'] == 'koeln stadtkreis', 'simp_name'] = 'cöln'
     df_counties.loc[df_counties['orig_name'] == 'lyk', 'simp_name'] = 'lyck'
     df_counties.loc[df_counties['orig_name'] == 'kammin', 'simp_name'] = 'cammin'
     df_counties.loc[df_counties['orig_name'] == 'unterwesterwald', 'simp_name'] = 'unterwesterwaldkreis'
@@ -72,15 +69,6 @@ def extract_county_names(df_census):
     df_counties.loc[df_counties['orig_name'] == 'jueterbock-luckenwalde', 'simp_name'] = 'jüterbog-luckenwalde'
     df_counties.loc[df_counties['orig_name'] == 'kalbe', 'simp_name'] = 'calbe'
     df_counties.loc[df_counties['orig_name'] == 'otterndorf', 'simp_name'] = 'ottendorf'
-    df_counties.loc[df_counties['orig_name'] == 'adelnau', 'simp_name'] = 'ostrowo'
-    df_counties.loc[df_counties['orig_name'] == 'rotenburg', 'simp_name'] = 'zeven'
-    df_counties.loc[df_counties['orig_name'] == 'emden', 'simp_name'] = 'norden'
-    df_counties.loc[df_counties['orig_name'] == 'aurich', 'simp_name'] = 'wittmund'
-    df_counties.loc[df_counties['orig_name'] == 'marienburg b.H.', 'simp_name'] = 'alfeld'
-    df_counties.loc[df_counties['orig_name'] == 'hagen', 'simp_name'] = 'schwelm'
-    df_counties.loc[df_counties['orig_name'] == 'celle', 'simp_name'] = 'burgdorf'
-
-
 
     # extract different forms of the name
     df_counties['simp_name'] = df_counties['simp_name'].str.replace(r'^pr\.\s', '')
@@ -146,6 +134,20 @@ def extract_county_names(df_census):
     df_counties.loc[df_counties['orig_name']=='liebenburg','man_name'] = 'goslar'
     df_counties.loc[df_counties['orig_name']=='recklinghausen','man_name'] = 'dorsten'
     df_counties.loc[df_counties['orig_name']=='recklinghausen','man_name'] = 'dorsten'
+    df_counties.loc[df_counties['orig_name'] == 'krefeld stadtkreis', 'man_name'] = 'crefeld'
+    df_counties.loc[df_counties['orig_name'] == 'krefeld landkreis', 'man_name'] = 'crefeld'
+    df_counties.loc[df_counties['orig_name'] == 'koeln landkreis', 'man_name'] = 'cöln'
+    df_counties.loc[df_counties['orig_name'] == 'koeln stadtkreis', 'man_name'] = 'cöln'
+    df_counties.loc[df_counties['orig_name'] == 'kassel stadtkreis', 'man_name'] = 'cassel'
+    df_counties.loc[df_counties['orig_name'] == 'kassel landkreis', 'man_name'] = 'cassel'
+    df_counties.loc[df_counties['orig_name'] == 'adelnau', 'man_name'] = 'ostrowo'
+    df_counties.loc[df_counties['orig_name'] == 'rotenburg', 'man_name'] = 'zeven'
+    df_counties.loc[df_counties['orig_name'] == 'emden', 'man_name'] = 'norden'
+    df_counties.loc[df_counties['orig_name'] == 'aurich', 'man_name'] = 'wittmund'
+    df_counties.loc[df_counties['orig_name'] == 'marienburg b.H.', 'man_name'] = 'alfeld'
+    df_counties.loc[df_counties['orig_name'] == 'hagen', 'man_name'] = 'schwelm'
+    df_counties.loc[df_counties['orig_name'] == 'celle', 'man_name'] = 'burgdorf'
+    df_counties.loc[df_counties['orig_name'] == 'inowraclaw', 'man_name'] = 'inowrazlaw'
 
 
     # strip all [name, alt_name, suffix] of white spaces
@@ -157,7 +159,7 @@ def extract_county_names(df_census):
 
 """ ----------------------------------- LOAD GAZETTE DATA AND CLEAN FOR MERGE -----------------------------------"""
 
-def gazetter_data(county_names, df):
+def gazetter_data(county_names, df, map_names):
 
     # initial entry to start dataframe
     df_county = df[df['Kr'].str.contains(county_names[0].title(), na=False)]
@@ -169,6 +171,13 @@ def gazetter_data(county_names, df):
                 df_county = pd.concat([df_county, df_temp], ignore_index=True)
             except AttributeError:
                 continue
+
+    # find gazetter entries from map:
+    df_map_county = gazetter_data_map(df_gazetter, map_names)
+
+    # concatenate that two:
+    df_county = pd.concat([df_county, df_map_county], ignore_index=True)
+    #df_county = df_map_county
 
     # duplicated columns: keep only first
     df_county = df_county.groupby(['id']).first().reset_index()
@@ -246,6 +255,59 @@ def gazetter_data(county_names, df):
     # print("checking the class_gazette column has been successfully and accurately added")
     # print(df_fraustadt[['id', 'name_gazetter', 'lat', 'lng','Type', 'merge_name', 'class_gazetter']].head())
     return df_county
+
+""" ---------------------------EXTRACT GAZETTER ENTRIES WHICH FALL INSIDE MAPPED REGION-------------------------"""
+
+def extract_map_names(df_counties, prussia_map):
+    df_counties['simp_name'] = df_counties['simp_name'].str.replace(r'ö', 'o')
+    df_counties['simp_name'] = df_counties['simp_name'].str.replace(r'ü', 'u')
+
+    county_map_name = {}
+
+    for header in list(df_counties.columns.values):
+        count = -1
+        for county in df_counties[header]:
+            count += 1
+            try:
+                for map_county in prussia_map["NAME"]:
+                    if county.upper() in map_county:
+                        orig_name = df_counties.loc[df_counties[header] == county, 'orig_name']
+                        if orig_name[count] not in county_map_name.keys():
+                            county_map_name[orig_name[count]] = set([map_county])
+                        else:
+                            county_map_name[orig_name[count]].add(map_county)
+            except AttributeError:
+                continue
+
+    # !! unmatched to do:
+    for county in df_counties['orig_name']:
+        if county not in county_map_name.keys():
+            county_map_name['county'] = set()
+            print(county)
+
+    return county_map_name
+
+def gazetter_data_map(df_gazetter, map_names):
+    gdf_gazetter = gpd.GeoDataFrame(df_gazetter, geometry=gpd.points_from_xy(df_gazetter.lng, df_gazetter.lat))
+    df_gazetter_map_county = df_gazetter.loc[0]
+    for map_name in map_names:
+        if map_name == None:
+            continue
+        # extract county poly
+        county_gdf = prussia_map[prussia_map['NAME'] == map_name]
+        county_gdf.index = range(0, county_gdf.shape[0])
+        county_poly = county_gdf.loc[0, 'geometry']
+        within = gdf_gazetter[gdf_gazetter.within(county_poly)]
+        index_in_county = set()
+        for j in within.index:
+            index_in_county.add(j)
+        # update to only keep the locations deemed to be within the county
+        if df_gazetter_map_county.shape[0] == 1:
+            df_gazetter_map_county = df_gazetter.reindex(index_in_county)
+        else:
+            df_gazetter_map_county = pd.concat([df_gazetter_map_county, df_gazetter.reindex(index_in_county)], ignore_index=True)
+
+    return df_gazetter_map_county
 
 """ ----------------------------LOAD CLEANED CENSUS DATA AND APPLY STRING CLEANING -----------------------------------"""
 def census_data(county, df_census):
@@ -771,20 +833,22 @@ for county in df_counties['orig_name']:
     # extract county name that appears in the census
     county = current_county_names[0]
 
+    # read in map of prussia
+    prussia_map = gpd.read_file(WORKING_DIRECTORY + "PrussianCensus1871/GIS/1871_county_shapefile-new.shp")
+    # convert to longitude and latitude for printing
+    prussia_map = prussia_map.to_crs(epsg=4326)
+
+    # find county name from map:
+    map_names = extract_map_names(df_counties, prussia_map)
+
     # gather and clean gazetter entires
-    df_gazetter_county = gazetter_data(current_county_names,df_gazetter)
+    df_gazetter_county = gazetter_data(current_county_names,df_gazetter, map_names[county])
 
     # gather and clean census
     df_census_county = census_data(county, df_census)
 
     # merge census data
     df_merged, exact_match_perc, df_join = merge_data(df_gazetter_county, df_census_county)
-
-    # prepare for total output write to file
-    # df_merged.drop(columns=["_merge"], inplace=True)
-    # df_merged.sort_values(by="loc_id", inplace=True)
-    # df_merged.to_excel(os.path.join(WORKING_DIRECTORY, 'OutputDodge/', county, 'Merged_Data_' + county + '.xlsx'),
-    #                    index=False)
 
     # complete levenshtein distance calulations
     df_unmatched_census, levenshtein_matches = lev_dist_calc(df_census_county, df_gazetter_county, df_merged, county)
