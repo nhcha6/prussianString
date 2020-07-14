@@ -165,6 +165,9 @@ def gazetter_data(county_names, df, map_names):
     df_county = df[df['Kr'].str.contains(county_names[0].title(), na=False)]
     # loop through each potential name and if it is a substring in any column of df, add it to df_county
     for name in county_names:
+        # ignore names that are generic and filter poorly
+        if name in ['stadt', 'landkreis', 'main'] or len(name)<3 or '.' in name:
+            continue
         for header in list(df.columns.values):
             try:
                 df_temp = df[df[header].str.contains(name.title(), na=False)]
@@ -172,11 +175,18 @@ def gazetter_data(county_names, df, map_names):
             except AttributeError:
                 continue
 
+    # drop the duplicate entries added
+    df_county = df_county.drop_duplicates(subset=['id'], keep='first')
+
+    if df_county.shape[0]>1000:
+        print('too big')
+        print(county_names)
+
     # find gazetter entries from map:
     df_map_county = gazetter_data_map(df_gazetter, map_names)
 
     # concatenate that two:
-    df_county = pd.concat([df_county, df_map_county], ignore_index=True)
+    df_county = pd.concat([df_county, df_map_county], ignore_index=True, sort=False)
     #df_county = df_map_county
 
     # duplicated columns: keep only first
@@ -305,7 +315,7 @@ def gazetter_data_map(df_gazetter, map_names):
         if df_gazetter_map_county.shape[0] == 1:
             df_gazetter_map_county = df_gazetter.reindex(index_in_county)
         else:
-            df_gazetter_map_county = pd.concat([df_gazetter_map_county, df_gazetter.reindex(index_in_county)], ignore_index=True)
+            df_gazetter_map_county = pd.concat([df_gazetter_map_county, df_gazetter.reindex(index_in_county)], ignore_index=True, sort=False)
 
     return df_gazetter_map_county
 
@@ -827,11 +837,11 @@ count = 0
 for county in df_counties['orig_name']:
     count+=1
     print(count)
-    if county=='liegnitz landkreis':
-        cont_flag = False
-        continue
-    if cont_flag:
-        continue
+    # if county = 'test'
+    #     cont_flag = False
+    #     continue
+    # if cont_flag:
+    #     continue
     current_county = df_counties.loc[df_counties['orig_name'] == county]
     current_county=current_county.reset_index()
     current_county.drop(columns=["index"], inplace=True)
@@ -870,7 +880,6 @@ for county in df_counties['orig_name']:
 
     # calculate quality stats
     qual_stat(exact_match_perc, df_merged_nodups, county)
-
 
 
 
