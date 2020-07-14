@@ -175,6 +175,7 @@ def gazetter_data(county_names, df, map_names):
     # find gazetter entries from map:
     df_map_county = gazetter_data_map(df_gazetter, map_names)
 
+
     # concatenate that two:
     df_county = pd.concat([df_county, df_map_county], ignore_index=True)
     #df_county = df_map_county
@@ -258,20 +259,20 @@ def gazetter_data(county_names, df, map_names):
 
 """ ---------------------------EXTRACT GAZETTER ENTRIES WHICH FALL INSIDE MAPPED REGION-------------------------"""
 
-def extract_map_names(df_counties, prussia_map):
-    df_counties['simp_name'] = df_counties['simp_name'].str.replace(r'ö', 'o')
-    df_counties['simp_name'] = df_counties['simp_name'].str.replace(r'ü', 'u')
+def extract_map_names(df_counties_census, prussia_map):
+    df_counties_census['simp_name'] = df_counties_census['simp_name'].str.replace(r'ö', 'o')
+    df_counties_census['simp_name'] = df_counties_census['simp_name'].str.replace(r'ü', 'u')
 
     county_map_name = {}
 
-    for header in list(df_counties.columns.values):
+    for header in list(df_counties_census.columns.values):
         count = -1
-        for county in df_counties[header]:
+        for county in df_counties_census[header]:
             count += 1
             try:
                 for map_county in prussia_map["NAME"]:
                     if county.upper() in map_county:
-                        orig_name = df_counties.loc[df_counties[header] == county, 'orig_name']
+                        orig_name = df_counties_census.loc[df_counties_census[header] == county, 'orig_name']
                         if orig_name[count] not in county_map_name.keys():
                             county_map_name[orig_name[count]] = set([map_county])
                         else:
@@ -280,9 +281,9 @@ def extract_map_names(df_counties, prussia_map):
                 continue
 
     # !! unmatched to do:
-    for county in df_counties['orig_name']:
+    for county in df_counties_census['orig_name']:
         if county not in county_map_name.keys():
-            county_map_name['county'] = set()
+            county_map_name[county] = set()
             print(county)
 
     return county_map_name
@@ -786,12 +787,21 @@ def qual_stat(exact_match_perc, df_merge_nodups, county):
     df_merge_details.to_excel(os.path.join(WORKING_DIRECTORY, 'Output/', 'MergeDetails.xlsx'), index=False)
 
 
-
-
 # load saved data frame containing census file
 df_census = pd.read_pickle(WORKING_DIRECTORY+"census_df_pickle")
 
 # extract county name data frame from census
+df_counties = extract_county_names(df_census)
+
+# read in map of prussia
+prussia_map = gpd.read_file(WORKING_DIRECTORY + "PrussianCensus1871/GIS/1871_county_shapefile-new.shp")
+# convert to longitude and latitude for printing
+prussia_map = prussia_map.to_crs(epsg=4326)
+
+# find county name from map:
+map_names = extract_map_names(df_counties, prussia_map)
+
+# repeat this as slight changes were made in
 df_counties = extract_county_names(df_census)
 
 # load in json file of (combinded) Gazetter entries
@@ -814,7 +824,7 @@ count = 0
 for county in df_counties['orig_name']:
     count+=1
     print(count)
-    if county!='fraustadt':
+    if county!='kolberg-koerlin':
         continue
     current_county = df_counties.loc[df_counties['orig_name'] == county]
     current_county=current_county.reset_index()
@@ -828,18 +838,8 @@ for county in df_counties['orig_name']:
     print(f'''\nMATCHING FOR: {current_county_names[0]}\n''')
     print(current_county_names)
 
-    #if county == 'koenigsberg' or county == 'koenigsberg stadt':
-
     # extract county name that appears in the census
     county = current_county_names[0]
-
-    # read in map of prussia
-    prussia_map = gpd.read_file(WORKING_DIRECTORY + "PrussianCensus1871/GIS/1871_county_shapefile-new.shp")
-    # convert to longitude and latitude for printing
-    prussia_map = prussia_map.to_crs(epsg=4326)
-
-    # find county name from map:
-    map_names = extract_map_names(df_counties, prussia_map)
 
     # gather and clean gazetter entires
     df_gazetter_county = gazetter_data(current_county_names,df_gazetter, map_names[county])
