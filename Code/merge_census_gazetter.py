@@ -355,7 +355,7 @@ def census_data(county, df_census):
     # extract alternative name without appendixes such as bei in
     df_county['suffix'] = df_county['name'].str.extract(r'.+\(([a-zA-Z\.-]+)\).*', expand=True)
     # also make name and alt_name what is either side of a dash:
-    df_county[['name', 'alt_name']] = df_county['name'].str.split('-', expand=True)
+    #df_county[['name', 'alt_name']] = df_county['name'].str.split('-', expand=True)
     # replace '-' with "\s" in suffix, 'niederr' with 'nieder'  (and special case nied. with nieder)
     df_county['suffix'] = df_county['suffix'].str.replace(r'-', ' ')
     df_county['suffix'] = df_county['suffix'].str.replace('Nied.', 'Nieder')
