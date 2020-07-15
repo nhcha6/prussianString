@@ -159,8 +159,8 @@ def extract_county_names(df_census):
 
 """ ----------------------------------- LOAD GAZETTE DATA AND CLEAN FOR MERGE -----------------------------------"""
 
-def gazetter_data(county_names, df, map_names):
-
+def gazetter_data(df):
+    """
     # initial entry to start dataframe
     df_county = df[df['Kr'].str.contains(county_names[0].title(), na=False)]
     # loop through each potential name and if it is a substring in any column of df, add it to df_county
@@ -187,6 +187,9 @@ def gazetter_data(county_names, df, map_names):
 
     # concatenate that too:
     df_county = pd.concat([df_county, df_map_county], ignore_index=True, sort=False)
+    """
+    df_county = df
+
     # duplicated columns: keep only first
     df_county = df_county.groupby(['id']).first().reset_index()
     #print(df_county[df_county['geometry'].str.contains('Point', na=False)])
@@ -195,8 +198,8 @@ def gazetter_data(county_names, df, map_names):
     # create column for merge
     df_county['merge_name'] = df_county['name'].str.strip()
     df_county['merge_name'] = df_county['merge_name'].str.lower()
-    print(f'The number of locations in the Gazetter with "{county}" in any of their columns is {df_county.shape[0]}')
-    print(f'The number of locations in the Gazetter with inside the county boundary is {df_county[df_county["geometry"].notnull()].shape[0]}')
+    print(f'The number of locations in the Gazetteris {df_county.shape[0]}')
+    #print(f'The number of locations in the Gazetter with inside the county boundary is {df_county[df_county["geometry"].notnull()].shape[0]}')
     # rename name column to indicate gazetter
     df_county.rename(columns={'name': 'name_gazetter'}, inplace=True)
 
@@ -606,11 +609,11 @@ def lev_dist_calc(df_county_cens, df_county_gaz, df_merged, county):
     diff = id_gazetter - id_merge
     df_remainder = df_county_gaz[df_county_gaz['id'].isin(diff)]
 
-    if not os.path.exists(os.path.join(WORKING_DIRECTORY, 'Output/', county)):
-        os.makedirs(os.path.join(WORKING_DIRECTORY, 'Output/', county))
+    if not os.path.exists(os.path.join(WORKING_DIRECTORY, 'BadMatches', 'SecondBadOutput', county)):
+        os.makedirs(os.path.join(WORKING_DIRECTORY, 'BadMatches', 'SecondBadOutput', county))
 
 
-    df_remainder.to_excel(os.path.join(WORKING_DIRECTORY, 'Output/', county, 'Gazetter_Remainder_' + county + '.xlsx'),
+    df_remainder.to_excel(os.path.join(WORKING_DIRECTORY, 'BadMatches', 'SecondBadOutput', county, 'Gazetter_Remainder_' + county + '.xlsx'),
                           index=False)
 
     # extract unmatched names from census data:
@@ -749,14 +752,14 @@ def write_merged_data(df_merged, df_lev_merged, county):
     df_merged.drop(columns=["_merge"], inplace=True)
     df_merged.sort_values(by="loc_id", inplace=True)
     df_merged.drop(columns=["lev_match"], inplace=True)
-    df_merged.to_excel(os.path.join(WORKING_DIRECTORY, 'Output/', county, 'Merged_Data_' + county + '.xlsx'),
+    df_merged.to_excel(os.path.join(WORKING_DIRECTORY, 'BadMatches', 'SecondBadOutput', county, 'Merged_Data_' + county + '.xlsx'),
                        index=False)
     # prepare for levenshtein matches write to file
     df_lev_merged.drop(columns=["_merge"], inplace=True)
     df_lev_merged.drop(columns=["lev_match"], inplace=True)
     df_lev_merged.sort_values(by="loc_id", inplace=True)
     df_lev_merged.to_excel(
-        os.path.join(WORKING_DIRECTORY, 'Output', county, 'Lev_Merged_Data_' + county + '.xlsx'),
+        os.path.join(WORKING_DIRECTORY, 'BadMatches', 'SecondBadOutput', county, 'Lev_Merged_Data_' + county + '.xlsx'),
         index=False)
 
     """ ------------------------------------ CALCULATE QUALITY STATISTICS ----------------------------------------"""
@@ -781,7 +784,7 @@ def qual_stat(exact_match_perc, df_merge_nodups, county):
         f'''\n{round5_perc:.2f}% of locations were matched by simplifying the name from both the census and meyers gazetter''')
 
     # import csv to data frame, edit it and output new data frame to csv
-    df_merge_details = pd.read_excel(os.path.join(WORKING_DIRECTORY, 'Output/', 'MergeDetails.xlsx'))
+    df_merge_details = pd.read_excel(os.path.join(WORKING_DIRECTORY, 'BadMatches', 'SecondBadOutput', 'MergeDetails.xlsx'))
 
     # if county has never been run, add new entry
     if df_merge_details[df_merge_details['county'] == county].empty:
@@ -803,7 +806,7 @@ def qual_stat(exact_match_perc, df_merge_nodups, county):
         lev_typo += match[0] + " - " + match[1] + " | "
     df_merge_details.loc[df_merge_details['county'] == county, 'lev_typo'] = lev_typo
 
-    df_merge_details.to_excel(os.path.join(WORKING_DIRECTORY, 'Output/', 'MergeDetails.xlsx'), index=False)
+    df_merge_details.to_excel(os.path.join(WORKING_DIRECTORY, 'BadMatches', 'SecondBadOutput', 'MergeDetails.xlsx'), index=False)
 
 
 # load saved data frame containing census file
@@ -823,31 +826,25 @@ map_names = extract_map_names(df_counties, prussia_map)
 # repeat this as slight changes were made in
 df_counties = extract_county_names(df_census)
 
-# load in json file of (combinded) Gazetter entries
-# commented out as saving of df means it need only run once
-# file_path = os.path.join(wdir, 'Matching', 'json_merge.json')
-# with open(file_path, 'r', encoding="utf8") as json_file:
-#     data = json.load(json_file)
-#     df = json_normalize(data)
-#     print(f'The number of entries in Meyer Gazetter is: {df.shape[0]}')
-# # save df to file so that we do not need to load json file again.
-# df.to_pickle(wdir+"df_pickle")
-
 # load saved data frame
 df_gazetter = pd.read_pickle(WORKING_DIRECTORY + "df_pickle")
 print(f'The number of entries in Meyer Gazetter is: {df_gazetter.shape[0]}')
 
+# # gather and clean gazetter entires
+df_gazetter_county = gazetter_data(df_gazetter)
+
+
 # figure out which counties to run
+# load merge data
+df_merge_data = pd.read_excel(os.path.join(WORKING_DIRECTORY,'Output', 'MergeDetails.xlsx'))
+df_bad_match = df_merge_data[df_merge_data['match_perc']<80]
 
 # build up list of possible county names to be searched against gazetter.
 cont_flag = True
 count = 0
-for county in df_counties['orig_name']:
+for county in df_bad_match['county']:
     count+=1
     print(count)
-    if county != 'fraustadt':
-        cont_flag = False
-        continue
     # if cont_flag:
     #     continue
     current_county = df_counties.loc[df_counties['orig_name'] == county]
@@ -864,9 +861,6 @@ for county in df_counties['orig_name']:
 
     # extract county name that appears in the census
     county = current_county_names[0]
-
-    # gather and clean gazetter entires
-    df_gazetter_county = gazetter_data(current_county_names,df_gazetter, map_names[county])
 
     # gather and clean census
     df_census_county = census_data(county, df_census)

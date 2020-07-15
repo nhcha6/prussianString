@@ -31,6 +31,8 @@ print(df_bad_match_small)
 df_bad_match_big = df_bad_match[df_bad_match['county_size']>20].reset_index()
 print(df_bad_match_big)
 
+df_bad_match_small.to_excel(os.path.join(WORKING_DIRECTORY, 'BadMatches', 'smallBadMatches.xlsx'),index=False)
+
 df_merge_data.to_excel(os.path.join(WORKING_DIRECTORY, 'Output', 'MergeDetails.xlsx'),index=False)
 
 
