@@ -36,9 +36,9 @@ df_bad_match_big.to_excel(os.path.join(WORKING_DIRECTORY, 'BadMatches', 'bigBadM
 
 df_merge_data.to_excel(os.path.join(WORKING_DIRECTORY, 'Output', 'MergeDetails.xlsx'),index=False)
 
-for county in df_bad_match_small['county']:
+for county in df_bad_match_big['county']:
     df_merged = pd.read_excel(os.path.join(WORKING_DIRECTORY,'Output', county, 'Merged_Data_'+county+'.xlsx'))
     df_merged_nomatch = df_merged[df_merged['id'].isnull()]
-    df_merged_nomatch.iloc[:,:20].to_excel(os.path.join(WORKING_DIRECTORY, 'BadMatches/SmallNoMatch', 'Unmerged_Data_'+county+'.xlsx'),index=False)
+    df_merged_nomatch.iloc[:,:20].to_excel(os.path.join(WORKING_DIRECTORY, 'BadMatches/BigNoMatch', 'Unmerged_Data_'+county+'.xlsx'),index=False)
 
 
