@@ -15,10 +15,22 @@ pd.set_option("display.max_rows", None, "display.max_columns", None)
 WORKING_DIRECTORY = '/Users/nicolaschapman/Documents/PrussianStringMatching/Data/'
 
 # load saved data frame
-census_df = pd.read_pickle(wdir+"census_df_pickle")
+df_census= pd.read_pickle(WORKING_DIRECTORY+"census_df_pickle")
 
-# don't have a better way to deal with the exception atm
-df_county = df_census[df_census['county'] == 'berlin']
+# load merge data
+df_merge_data = pd.read_excel(os.path.join(WORKING_DIRECTORY,'Output', 'MergeDetails.xlsx'))
 
+for county in df_merge_data['county']:
+    df_county = df_census[df_census['county'] == county]
+    df_merge_data.loc[df_merge_data['county']==county,'county_size'] = df_county.shape[0]
+
+df_bad_match = df_merge_data[df_merge_data['match_perc']<80]
+
+df_bad_match_small = df_bad_match[df_bad_match['county_size']<20].reset_index()
+print(df_bad_match_small)
+df_bad_match_big = df_bad_match[df_bad_match['county_size']>20].reset_index()
+print(df_bad_match_big)
+
+df_merge_data.to_excel(os.path.join(WORKING_DIRECTORY, 'Output', 'MergeDetails.xlsx'),index=False)
 
 

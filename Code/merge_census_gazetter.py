@@ -196,7 +196,7 @@ def gazetter_data(county_names, df, map_names):
     df_county['merge_name'] = df_county['name'].str.strip()
     df_county['merge_name'] = df_county['merge_name'].str.lower()
     print(f'The number of locations in the Gazetter with "{county}" in any of their columns is {df_county.shape[0]}')
-    print(f'The number of locations in the Gazetter with inside the county boundary is {df_county[df_county["geometry"].isnull()].shape[0]}')
+    print(f'The number of locations in the Gazetter with inside the county boundary is {df_county[df_county["geometry"].notnull()].shape[0]}')
     # rename name column to indicate gazetter
     df_county.rename(columns={'name': 'name_gazetter'}, inplace=True)
 
@@ -836,6 +836,8 @@ df_counties = extract_county_names(df_census)
 # load saved data frame
 df_gazetter = pd.read_pickle(WORKING_DIRECTORY + "df_pickle")
 print(f'The number of entries in Meyer Gazetter is: {df_gazetter.shape[0]}')
+
+# figure out which counties to run
 
 # build up list of possible county names to be searched against gazetter.
 cont_flag = True
