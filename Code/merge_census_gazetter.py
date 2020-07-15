@@ -868,6 +868,13 @@ for county in df_bad_match['county']:
     # merge census data
     df_merged, exact_match_perc, df_join = merge_data(df_gazetter_county, df_census_county)
 
+    if not os.path.exists(os.path.join(WORKING_DIRECTORY, 'BadMatches', 'SecondBadOutput', county)):
+        os.makedirs(os.path.join(WORKING_DIRECTORY, 'BadMatches', 'SecondBadOutput', county))
+
+    df_merged.to_excel(os.path.join(WORKING_DIRECTORY, 'BadMatches', 'SecondBadOutput', county, 'Merged_Data_' + county + '.xlsx'), index=False)
+
+
+    """
     # complete levenshtein distance calulations
     df_unmatched_census, levenshtein_matches = lev_dist_calc(df_census_county, df_gazetter_county, df_merged, county)
 
@@ -883,7 +890,7 @@ for county in df_bad_match['county']:
     # calculate quality stats
     qual_stat(exact_match_perc, df_merged_nodups, county)
 
-
+"""
 
 """
 # set county name to be run

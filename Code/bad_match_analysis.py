@@ -27,12 +27,18 @@ for county in df_merge_data['county']:
 df_bad_match = df_merge_data[df_merge_data['match_perc']<80]
 
 df_bad_match_small = df_bad_match[df_bad_match['county_size']<20].reset_index()
-print(df_bad_match_small)
-df_bad_match_big = df_bad_match[df_bad_match['county_size']>20].reset_index()
-print(df_bad_match_big)
+
+df_bad_match_big = df_bad_match[df_bad_match['county_size']>19].reset_index()
+
 
 df_bad_match_small.to_excel(os.path.join(WORKING_DIRECTORY, 'BadMatches', 'smallBadMatches.xlsx'),index=False)
+df_bad_match_big.to_excel(os.path.join(WORKING_DIRECTORY, 'BadMatches', 'bigBadMatches.xlsx'),index=False)
 
 df_merge_data.to_excel(os.path.join(WORKING_DIRECTORY, 'Output', 'MergeDetails.xlsx'),index=False)
+
+for county in df_bad_match_small['county']:
+    df_merged = pd.read_excel(os.path.join(WORKING_DIRECTORY,'Output', county, 'Merged_Data_'+county+'.xlsx'))
+    df_merged_nomatch = df_merged[df_merged['id'].isnull()]
+    df_merged_nomatch.iloc[:,:20].to_excel(os.path.join(WORKING_DIRECTORY, 'BadMatches/SmallNoMatch', 'Unmerged_Data_'+county+'.xlsx'),index=False)
 
 
