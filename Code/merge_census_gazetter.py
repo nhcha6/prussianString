@@ -182,8 +182,14 @@ def gazetter_data(county_names, df, map_names):
         print('too big')
         print(county_names)
 
+    # try:
+    #     print(df_county['geometry'])
+    # except KeyError:
+    #     print('no geom')
+
     # find gazetter entries from map:
     df_map_county = gazetter_data_map(df_gazetter, map_names)
+    df.drop(columns=["geometry"], inplace=True)
 
     # concatenate that too:
     df_county = pd.concat([df_county, df_map_county], ignore_index=True, sort=False)
@@ -265,7 +271,6 @@ def gazetter_data(county_names, df, map_names):
     df_county['class_gazetter'] = df_county['Type'].apply(check_type)
     # # check results
     # print("checking the class_gazette column has been successfully and accurately added")
-    # print(df_fraustadt[['id', 'name_gazetter', 'lat', 'lng','Type', 'merge_name', 'class_gazetter']].head())
     return df_county
 
 """ ---------------------------EXTRACT GAZETTER ENTRIES WHICH FALL INSIDE MAPPED REGION-------------------------"""
@@ -402,7 +407,7 @@ def census_data(county, df_census):
     df_county.loc[(df_county["alt_name"].isnull()) & (df_county["name"].str.startswith('k')), "alt_name"] = df_county.loc[(df_county["alt_name"].isnull()) & (df_county["name"].str.startswith('k')), "name"].str.replace('k', 'c')
     df_county.loc[(df_county["alt_name"].isnull()) & (df_county["name"].str.contains('oe')), "alt_name"] = df_county.loc[(df_county["alt_name"].isnull()) & (df_county["name"].str.contains('oe')), "name"].str.replace('oe', 'ö')
 
-    print(df_county[['orig_name', 'name', 'alt_name']])
+    #print(df_county[['orig_name', 'name', 'alt_name']])
     print(f'Number of locations in master file equals {df_county.shape[0]}')
 
     return df_county
@@ -862,7 +867,7 @@ count = 0
 for county in df_counties['orig_name']:
     count+=1
     print(count)
-    if county != 'duesseldorf landkreis':
+    if county not in ['heydekrug', 'malmedy']:
         cont_flag = False
         continue
     # if cont_flag:
