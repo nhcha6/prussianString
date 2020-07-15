@@ -185,12 +185,13 @@ def gazetter_data(county_names, df, map_names):
     # find gazetter entries from map:
     df_map_county = gazetter_data_map(df_gazetter, map_names)
 
-    # concatenate that two:
+    # concatenate that too:
     df_county = pd.concat([df_county, df_map_county], ignore_index=True, sort=False)
-    #df_county = df_map_county
-
     # duplicated columns: keep only first
     df_county = df_county.groupby(['id']).first().reset_index()
+    #print(df_county[df_county['geometry'].str.contains('Point', na=False)])
+    #df[df['Kr'].str.contains(county_names[0].title(), na=False)]
+
     # create column for merge
     df_county['merge_name'] = df_county['name'].str.strip()
     df_county['merge_name'] = df_county['merge_name'].str.lower()
@@ -289,17 +290,17 @@ def extract_map_names(df_counties_census, prussia_map):
             except AttributeError:
                 continue
 
-    # !! unmatched to do:
+    # !! unmatched to do: set to FRAUSTADT so code doesnt break
     for county in df_counties_census['orig_name']:
         if county not in county_map_name.keys():
-            county_map_name[county] = set()
+            county_map_name[county] = set(['FRAUSTADT'])
             print(county)
 
     return county_map_name
 
 def gazetter_data_map(df_gazetter, map_names):
     gdf_gazetter = gpd.GeoDataFrame(df_gazetter, geometry=gpd.points_from_xy(df_gazetter.lng, df_gazetter.lat))
-    df_gazetter_map_county = df_gazetter.loc[0]
+    df_gazetter_map_county = None
     for map_name in map_names:
         if map_name == None:
             continue
@@ -312,7 +313,7 @@ def gazetter_data_map(df_gazetter, map_names):
         for j in within.index:
             index_in_county.add(j)
         # update to only keep the locations deemed to be within the county
-        if df_gazetter_map_county.shape[0] == 1:
+        if df_gazetter_map_county == None:
             df_gazetter_map_county = df_gazetter.reindex(index_in_county)
         else:
             df_gazetter_map_county = pd.concat([df_gazetter_map_county, df_gazetter.reindex(index_in_county)], ignore_index=True, sort=False)
@@ -393,6 +394,10 @@ def merge_data(df_county_gaz, df_county_cens):
     # split df_fraustadt into lat/long == null and lat/long!=null
     df_county_gaz_latlong = df_county_gaz[df_county_gaz['lat'] != 0]
     df_county_gaz_null = df_county_gaz[df_county_gaz['lat'] == 0]
+
+    # !! TO DO: split match based on lat long data instead.
+    # df_county_gaz_latlong = df_county_gaz[df_county_gaz['geometry'].notnull()]
+    # df_county_gaz_null = df_county_gaz[df_county_gaz['geometry'].isnull()]
 
 
     # Now let's try out the merege in a 4-step procedure. This procedure is iterated through twice, once for gazetter entries
