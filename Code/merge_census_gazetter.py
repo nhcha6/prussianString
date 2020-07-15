@@ -166,7 +166,7 @@ def gazetter_data(county_names, df, map_names):
     # loop through each potential name and if it is a substring in any column of df, add it to df_county
     for name in county_names:
         # ignore names that are generic and filter poorly
-        if name in ['stadt', 'landkreis', 'main'] or len(name)<3 or '.' in name:
+        if name in ['stadt', 'landkreis', 'main', 'rhein'] or len(name)<3 or '.' in name:
             continue
         for header in list(df.columns.values):
             try:
@@ -314,7 +314,7 @@ def gazetter_data_map(df_gazetter, map_names):
         for j in within.index:
             index_in_county.add(j)
         # update to only keep the locations deemed to be within the county
-        if df_gazetter_map_county == None:
+        if df_gazetter_map_county is None:
             df_gazetter_map_county = df_gazetter.reindex(index_in_county)
         else:
             df_gazetter_map_county = pd.concat([df_gazetter_map_county, df_gazetter.reindex(index_in_county)], ignore_index=True, sort=False)
@@ -348,6 +348,8 @@ def census_data(county, df_census):
     # adjustment for big cities with strange naming conventions
     if df_county.shape[0]==1:
         df_county = df_county.assign(name=county)
+        if county == 'krefeld stadtkreis':
+            df_county = df_county.assign(name='crefeld')
     # extract alternative writing of location name: in parantheses after =
     df_county['alt_name'] = df_county['name'].str.extract(r'.+\(=(.*)\).*', expand=True)
     # extract alternative name without appendixes such as bei in
@@ -375,6 +377,13 @@ def census_data(county, df_census):
         df_county['appendix'] = np.nan
         df_county['appendix'] = df_county['appendix'].astype(str)
 
+    # for entries with a) or b) etc, extract the last word as the 'name':
+    df_county.loc[df_county['orig_name'].str.contains(r'^.\)'), 'name'] = df_county.loc[df_county['orig_name'].str.contains(r'^.\)'), 'orig_name'].str.split().str[-1]
+    # (Stadt) similar case:
+    df_county.loc[df_county['orig_name'].str.contains(r'(Stadt)'), 'name'] = df_county.loc[df_county['orig_name'].str.contains(r'(Stadt)'), 'orig_name'].str.split().str[-1]
+    # -Neustadt
+    df_county.loc[df_county['orig_name'].str.contains(r'Neustadt-'), 'name'] = df_county.loc[df_county['orig_name'].str.contains(r'Neustadt-'), 'name'].str.split('-').str[-1]
+
     # strip all [name, alt_name, suffix] of white spaces
     # df_master.replace(np.nan, '', regex=True)
     for c in ['name', 'alt_name', 'suffix', 'appendix']:
@@ -384,6 +393,12 @@ def census_data(county, df_census):
     # concate 'suffix' and 'name'
     df_county.loc[df_county['suffix'].notnull(), 'alt_name'] = df_county.loc[
         df_county['suffix'].notnull(), ['suffix', 'name']].apply(lambda x: ' '.join(x), axis=1)
+
+    # if no alt-name and starts with c, change to a k and visa versa
+    df_county.loc[df_county["alt_name"].isnull(), "alt_name"] = df_county.loc[df_county["alt_name"].isnull(), "name"].str.replace('c','k')
+    df_county.loc[df_county["alt_name"].isnull(), "alt_name"] = df_county.loc[df_county["alt_name"].isnull(), "name"].str.replace('k','c')
+
+    print(df_county[['orig_name', 'name', 'alt_name']])
     print(f'Number of locations in master file equals {df_county.shape[0]}')
 
     return df_county
@@ -843,7 +858,7 @@ count = 0
 for county in df_counties['orig_name']:
     count+=1
     print(count)
-    if county != 'fraustadt':
+    if county != 'wipperfuerth':
         cont_flag = False
         continue
     # if cont_flag:
