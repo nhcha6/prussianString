@@ -417,8 +417,8 @@ def census_data(county, df_census):
 def merge_data(df_county_gaz, df_county_cens):
 
     # split df_fraustadt into lat/long == null and lat/long!=null
-    df_county_gaz_latlong = df_county_gaz[df_county_gaz['lat'] != 0]
-    df_county_gaz_null = df_county_gaz[df_county_gaz['lat'] == 0]
+    df_county_gaz_latlong = df_county_gaz[df_county_gaz['geometry'].notnull()]
+    df_county_gaz_null = df_county_gaz[df_county_gaz['geometry'].isnull()]
 
     # !! TO DO: split match based on lat long data instead.
     # df_county_gaz_latlong = df_county_gaz[df_county_gaz['geometry'].notnull()]
@@ -790,7 +790,7 @@ def qual_stat(exact_match_perc, df_merge_nodups, county):
     match_perc = 100 * (df_merge_nodups.shape[0] - df_merge_nodups[df_merge_nodups['id'].isnull()].shape[0]) / \
                  df_merge_nodups.shape[0]
     print(f'''\n{match_perc:.2f}% of locations were matched when levenshtein distance was considered''')
-    loc_perc = 100 * (df_merge_nodups.shape[0] - (df_merge_nodups[df_merge_nodups['lat'] == 0].shape[0] + df_merge_nodups[df_merge_nodups['id'].isnull()].shape[0]))/df_merge_nodups.shape[0]
+    loc_perc = 100 * (df_merge_nodups[df_merge_nodups['geometry'].notnull()].shape[0])/df_merge_nodups.shape[0]
     print(f'''\n{loc_perc:.2f}% of locations were matched to geocode data''')
     round1_perc = 100 * df_merge_nodups[df_merge_nodups['merge_round'] == 1].shape[0] / df_merge_nodups.shape[0]
     print(f'''\n{round1_perc:.2f}% of locations were matched by classification and the exact name''')
@@ -829,7 +829,6 @@ def qual_stat(exact_match_perc, df_merge_nodups, county):
 
     df_merge_details.to_excel(os.path.join(WORKING_DIRECTORY, 'Output/', 'MergeDetails.xlsx'), index=False)
 
-
 # load saved data frame containing census file
 df_census = pd.read_pickle(WORKING_DIRECTORY+"census_df_pickle")
 
@@ -867,7 +866,7 @@ count = 0
 for county in df_counties['orig_name']:
     count+=1
     print(count)
-    if county not in ['heydekrug', 'malmedy']:
+    if county not in ['fraustadt', 'malmedy']:
         cont_flag = False
         continue
     # if cont_flag:
