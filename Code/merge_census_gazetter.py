@@ -359,8 +359,6 @@ def census_data(county, df_census):
     df_county['alt_name'] = df_county['name'].str.extract(r'.+\(=(.*)\).*', expand=True)
     # extract alternative name without appendixes such as bei in
     df_county['suffix'] = df_county['name'].str.extract(r'.+\(([a-zA-Z\.-]+)\).*', expand=True)
-    # also make name and alt_name what is either side of a dash:
-    #df_county[['name', 'alt_name']] = df_county['name'].str.split('-', expand=True)
     # replace '-' with "\s" in suffix, 'niederr' with 'nieder'  (and special case nied. with nieder)
     df_county['suffix'] = df_county['suffix'].str.replace(r'-', ' ')
     df_county['suffix'] = df_county['suffix'].str.replace('Nied.', 'Nieder')
@@ -389,8 +387,21 @@ def census_data(county, df_census):
     # (Stadt) similar case:
     df_county.loc[df_county['orig_name'].str.contains(r'\(Stadt\)'), 'name'] = df_county.loc[df_county['orig_name'].str.contains(r'\(Stadt\)'), 'orig_name'].str.split().str[-1]
     # -Neustadt: may need to do this for other common dashes.
-    df_county.loc[df_county['orig_name'].str.contains(r'Neustadt-'), 'name'] = df_county.loc[df_county['orig_name'].str.contains(r'Neustadt-'), 'name'].str.split('-').str[-1]
+    #df_county.loc[df_county['orig_name'].str.contains(r'Neustadt-'), 'name'] = df_county.loc[df_county['orig_name'].str.contains(r'Neustadt-'), 'name'].str.split('-').str[-1]
     df_county.loc[df_county['orig_name'].str.contains('Schöppingen'), 'name'] = df_county.loc[df_county['orig_name'].str.contains('Schöppingen'), 'orig_name'].str.split().str[-1]
+
+    # concate 'suffix' and 'name'
+    df_county.loc[df_county['suffix'].notnull(), 'alt_name'] = df_county.loc[
+        df_county['suffix'].notnull(), ['suffix', 'name']].apply(lambda x: ' '.join(x), axis=1)
+
+    # if name contains a dash and alt_name is null:
+    df_county.loc[(df_county["alt_name"].isnull()) & (df_county["orig_name"].str.contains('-')), "name"] = df_county.loc[(df_county["alt_name"].isnull()) & (df_county["orig_name"].str.contains('-')), "orig_name"].str.split('-').str[0]
+    df_county.loc[(df_county["alt_name"].isnull()) & (df_county["orig_name"].str.contains('-')), "alt_name"] = df_county.loc[(df_county["alt_name"].isnull()) & (df_county["orig_name"].str.contains('-')), "orig_name"].str.split('-').str[-1]
+
+    # if no alt-name and starts with c, change to a k and visa versa (can't change both at the same time unfortunately
+    df_county.loc[(df_county["alt_name"].isnull()) & (df_county["name"].str.startswith('c')), "alt_name"] = df_county.loc[(df_county["alt_name"].isnull()) & (df_county["name"].str.startswith('c')), "name"].str.replace('c','k')
+    df_county.loc[(df_county["alt_name"].isnull()) & (df_county["name"].str.startswith('k')), "alt_name"] = df_county.loc[(df_county["alt_name"].isnull()) & (df_county["name"].str.startswith('k')), "name"].str.replace('k', 'c')
+    df_county.loc[(df_county["alt_name"].isnull()) & (df_county["name"].str.contains('oe')), "alt_name"] = df_county.loc[(df_county["alt_name"].isnull()) & (df_county["name"].str.contains('oe')), "name"].str.replace('oe', 'ö')
 
     # strip all [name, alt_name, suffix] of white spaces
     # df_master.replace(np.nan, '', regex=True)
@@ -398,17 +409,9 @@ def census_data(county, df_census):
         df_county[c] = df_county[c].str.strip()
         df_county[c] = df_county[c].str.lower()
 
-    # concate 'suffix' and 'name'
-    df_county.loc[df_county['suffix'].notnull(), 'alt_name'] = df_county.loc[
-        df_county['suffix'].notnull(), ['suffix', 'name']].apply(lambda x: ' '.join(x), axis=1)
-
-    # if no alt-name and starts with c, change to a k and visa versa (can't change both at the same time unfortunately
-    df_county.loc[(df_county["alt_name"].isnull()) & (df_county["name"].str.startswith('c')), "alt_name"] = df_county.loc[(df_county["alt_name"].isnull()) & (df_county["name"].str.startswith('c')), "name"].str.replace('c','k')
-    df_county.loc[(df_county["alt_name"].isnull()) & (df_county["name"].str.startswith('k')), "alt_name"] = df_county.loc[(df_county["alt_name"].isnull()) & (df_county["name"].str.startswith('k')), "name"].str.replace('k', 'c')
-    df_county.loc[(df_county["alt_name"].isnull()) & (df_county["name"].str.contains('oe')), "alt_name"] = df_county.loc[(df_county["alt_name"].isnull()) & (df_county["name"].str.contains('oe')), "name"].str.replace('oe', 'ö')
-
     #print(df_county[['orig_name', 'name', 'alt_name']])
     print(f'Number of locations in master file equals {df_county.shape[0]}')
+    print(df_county[['name','alt_name']])
 
     return df_county
 
@@ -866,7 +869,7 @@ count = 0
 for county in df_counties['orig_name']:
     count+=1
     print(count)
-    if county not in ['fraustadt', 'malmedy']:
+    if county not in ['fraustadt','magdeburg stadtkreis']:
         cont_flag = False
         continue
     # if cont_flag:
