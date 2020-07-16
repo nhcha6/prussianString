@@ -163,6 +163,7 @@ def extract_county_names(df_census):
 
 def gazetter_data(county_names, df, map_names, prussia_map):
 
+    ########## FILTER GAZETTER DATA FOR RELEVANT ENTRIES ##########
     # initial entry to start dataframe
     df_county = df[df['Kr'].str.contains(county_names[0].title(), na=False)]
     # loop through each potential name and if it is a substring in any column of df, add it to df_county
@@ -181,13 +182,8 @@ def gazetter_data(county_names, df, map_names, prussia_map):
     df_county = df_county.drop_duplicates(subset=['id'], keep='first')
 
     if df_county.shape[0]>1000:
-        print('too big')
+        print('very big')
         print(county_names)
-
-    # try:
-    #     print(df_county['geometry'])
-    # except KeyError:
-    #     print('no geom')
 
     # find gazetter entries from map:
     df_map_county = gazetter_data_map(df, map_names, prussia_map)
@@ -203,17 +199,32 @@ def gazetter_data(county_names, df, map_names, prussia_map):
     # create column for merge
     df_county['merge_name'] = df_county['name'].str.strip()
     df_county['merge_name'] = df_county['merge_name'].str.lower()
-    # spaces in merge_name removed to match with spaces in alt_name removed.
-    df_county['merge_name'] = df_county['merge_name'].str.replace(r'\s','')
     print(f'The number of locations in the Gazetter with "{county_names[0]}" in any of their columns is {df_county.shape[0]}')
     print(f'The number of locations in the Gazetter with inside the county boundary is {df_county[df_county["geometry"].notnull()].shape[0]}')
     # rename name column to indicate gazetter
     df_county.rename(columns={'name': 'name_gazetter'}, inplace=True)
 
-    # extract base name, eg: Zedlitz from Nieder Zedlitz
-    df_county['base_merge_name'] = df_county['merge_name'].str.extract(r'.*\s(.*)', expand=True)
-    # if the more generic version of the name is added instead of the proper name, swap the two
 
+    ########### STRING CLEANING AND ALTERNATIVE NAME EXTRACTION FROM GAZETTER ENTRY ##########
+    # extract base name, eg: Zedlitz from Nieder Zedlitz
+    df_county['base_merge_name'] = df_county['merge_name'].str.extract(r'(.*)\s.*', expand=True)
+    # alternative scenario where the first name is actually the one we want.
+    df_county['base_merge_name_alt'] = df_county['merge_name'].str.extract(r'.*\s(.*)', expand=True)
+    # similar process, but for a dash
+    df_county.loc[df_county['merge_name'].str.contains('-'), 'base_merge_name'] = df_county.loc[df_county['merge_name'].str.contains('-'), 'merge_name'].str.split('-').str[0]
+    # alternative scenario where the first name is actually the one we want.
+    df_county.loc[df_county['merge_name'].str.contains('-'), 'base_merge_name_alt'] = df_county.loc[df_county['merge_name'].str.contains('-'), 'merge_name'].str.split('-').str[-1]
+
+    # spaces in merge_name removed to match with spaces in alt_name removed.
+    df_county['merge_name'] = df_county['merge_name'].str.replace(r'\s', '')
+
+    # now account for cases where there is a comma
+    df_county.loc[df_county['merge_name'].str.contains(','), 'base_merge_name'] = df_county.loc[df_county['merge_name'].str.contains(','), 'merge_name'].str.split(',').str[0]
+    # alternative scenario where the first name is actually the one we want.
+    df_county.loc[df_county['merge_name'].str.contains(','), 'base_merge_name_alt'] = df_county.loc[df_county['merge_name'].str.contains(','), 'merge_name'].str.split(',').str[-1]
+
+
+    # EXTRACTING CORRECT CLASSIFICATION
     # Let's define a dictionary to match the [Meyers gazetter types](https://www.familysearch.org/wiki/en/Abbreviation_Table_for_Meyers_Orts_und_Verkehrs_Lexikon_Des_Deutschen_Reichs) to the three classes `stadt, landgemeinde, gutsbezirk`.
     dictionary_types = {"HptSt.": "stadt",  # Hauptstadt
                         "KrSt.": "stadt",  # Kreisstadt
@@ -259,10 +270,8 @@ def gazetter_data(county_names, df, map_names, prussia_map):
     # make apply check_type() function
     df_county['class_gazetter'] = df_county['Type'].apply(check_type)
 
-    # special change for obertaunus, remove tuanus for matching purposes.
-    # if county_names[0] == 'obertaunus':
-    #     df_county['name_gazetter'] = df_county['name_gazetter'].str.replace(r'\sTaunus', '')
-    #     print(df_county['name_gazetter'])
+
+    print(df_county[['merge_name', 'base_merge_name', 'base_merge_name_alt']])
 
     return df_county
 
@@ -321,12 +330,8 @@ def gazetter_data_map(df_gazetter, map_names, prussia_map):
 
 """ ----------------------------LOAD CLEANED CENSUS DATA AND APPLY STRING CLEANING -----------------------------------"""
 def census_data(county, df_census):
-    # Load Posen-Fraustadt-kreiskey-134.xlsx` file we want to match with Gazetter entries. Clean file before merge!
-    # !! To-Do: Improve string split Pattern
-    # Improve on split pattern for locations with appendix to accomodate "all" cases:
-    # `pattern = \sa\/|\sunt\s|\sa\s|\sunterm\s|\si\/|\si\s|\sb\s|\sin\s|\sbei\s|\sam\s|\san\s`
 
-    # don't have a better way to deal with the exception atm
+    # extract county data
     df_county = df_census[df_census['county']==county]
 
     # upload cleaned data
@@ -341,10 +346,12 @@ def census_data(county, df_census):
                               "locname": "orig_name"
                               }, inplace=True)
 
+    ########## GENERAL CLEAN CENSUS DATA FOR MATCHING ##########
+
     # now we need to clean location names
     df_county['name'] = df_county['orig_name']
 
-    # adjustment for big cities with strange naming conventions
+    # adjustment for big cities with strange naming conventions: use the county name as it generally better
     if df_county.shape[0]==1:
         df_county = df_county.assign(name=county)
         if county == 'krefeld stadtkreis':
@@ -377,15 +384,21 @@ def census_data(county, df_census):
         df_county['appendix'] = np.nan
         df_county['appendix'] = df_county['appendix'].astype(str)
 
-    # for entries with a) or b) etc, extract the last word as the 'name':
-    df_county.loc[df_county['orig_name'].str.contains(r'^.\)'), 'name'] = df_county.loc[df_county['orig_name'].str.contains(r'^.\)'), 'orig_name'].str.split().str[-1]
-    # (Stadt) similar case:
-    df_county.loc[df_county['orig_name'].str.contains(r'\(Stadt\)'), 'name'] = df_county.loc[df_county['orig_name'].str.contains(r'\(Stadt\)'), 'orig_name'].str.split().str[-1]
-    df_county.loc[df_county['orig_name'].str.contains('Schöppingen'), 'name'] = df_county.loc[df_county['orig_name'].str.contains('Schöppingen'), 'orig_name'].str.split().str[-1]
-
     # concate 'suffix' and 'name'
     df_county.loc[df_county['suffix'].notnull(), 'alt_name'] = df_county.loc[
         df_county['suffix'].notnull(), ['suffix', 'name']].apply(lambda x: ' '.join(x), axis=1)
+
+    ############ MORE SPECIFIC CLEANING MADE BY ANALYSING MISSED MATCHES ############
+    # may need to do this after everything else to ensure other matches are attempted first.
+
+    # for entries with a) or b) etc, extract the last word as the 'name':
+    df_county.loc[df_county['orig_name'].str.contains(r'^.\)'), 'name'] = \
+    df_county.loc[df_county['orig_name'].str.contains(r'^.\)'), 'orig_name'].str.split().str[-1]
+    # (Stadt) similar case:
+    df_county.loc[df_county['orig_name'].str.contains(r'\(Stadt\)'), 'name'] = \
+    df_county.loc[df_county['orig_name'].str.contains(r'\(Stadt\)'), 'orig_name'].str.split().str[-1]
+    df_county.loc[df_county['orig_name'].str.contains('Schöppingen'), 'name'] = \
+    df_county.loc[df_county['orig_name'].str.contains('Schöppingen'), 'orig_name'].str.split().str[-1]
 
     # if name contains a dash and alt_name is null:
     df_county.loc[(df_county["alt_name"].isnull()) & (df_county["orig_name"].str.contains('-')), "name"] = df_county.loc[(df_county["alt_name"].isnull()) & (df_county["orig_name"].str.contains('-')), "orig_name"].str.split('-').str[0]
@@ -401,13 +414,10 @@ def census_data(county, df_census):
         df_county.loc[df_county['name'].str.contains('Haiduck'), 'name'] = 'Bismarckhütte OSchles.'
         df_county.loc[df_county['name'].str.contains('Lagiewni'), 'name'] = 'Hohenlinde'
 
+    ############ FINAL CLEAN BEFORE OUTPUT ############
+
     # remove spaces in alt-name to account for case of 'kleinvargula' and 'klein vargula' simultaneously.
     df_county['alt_name'] = df_county['alt_name'].str.replace(r'\s', '')
-
-    # # adjustement counties which want bracket data appended directly instead of with a space.
-    # if county in ['obertaunus','langensalza', 'siegkreis']:
-    #     df_county.loc[df_county['orig_name'].str.contains(r'\(.*\)'), 'alt_name'] = df_county.loc[df_county['orig_name'].str.contains(r'\(.*\)'), 'alt_name'].str.replace(r'\s', '')
-    #     #df_county.loc[df_county['orig_name'].str.contains('(Klein)'), 'alt_name'] = df_county.loc[df_county['orig_name'].str.contains('(Klein)'), 'alt_name'].str.replace(r'\s', '')
 
     # strip all [name, alt_name, suffix] of white spaces
     # df_master.replace(np.nan, '', regex=True)
@@ -430,18 +440,13 @@ def merge_data(df_county_gaz, df_county_cens):
     df_county_gaz_latlong = df_county_gaz[df_county_gaz['geometry'].notnull()]
     df_county_gaz_null = df_county_gaz[df_county_gaz['geometry'].isnull()]
 
-    # !! TO DO: split match based on lat long data instead.
-    # df_county_gaz_latlong = df_county_gaz[df_county_gaz['geometry'].notnull()]
-    # df_county_gaz_null = df_county_gaz[df_county_gaz['geometry'].isnull()]
-
-
     # Now let's try out the merege in a 4-step procedure. This procedure is iterated through twice, once for gazetter entries
     # that have a valid lat-long, and one for entries that do not.
     # 1. merge on the "more restrivtive" `alt_name` that takes into considerations suffixes such as "Nieder" and the `class` label
     # 2. "non-matched" locations will be considered in a second merge based on the location `name` which is the location name without any suffixes and the `class` label
     # 3. "non-matched" locations will be considered in a third merge based on "more restrivtive" `alt_name` **but not** on `class` label
     # 4. "non-matched" locations will be considered in a fourth merge based on `name` **but not** on `class` label
-    # 5. "non-matched" locations will be considered in a fourth merge based only on the most basic form of both names.
+    # 5. a fifth merge is then completed, attempting to match the simplified "name" from the census with simpler forms of the gazetter name.
 
     #  1.)
     columns = list(df_county_cens.columns)
@@ -496,6 +501,15 @@ def merge_data(df_county_gaz, df_county_cens):
     df_nomatch = df_join[df_join['_merge'] == 'left_only']
     df_nomatch = df_nomatch[columns]
 
+    # 5.)
+    print("Merging if simplified census name matches simplified gazetter entry with location data")
+    df_join = merge_STATA(df_nomatch, df_county_gaz_latlong, how='left', left_on='name', right_on='base_merge_name_alt')
+    # set aside merged locations
+    df_merged5_alt = df_join[df_join['_merge'] == 'both']
+    # select locations without a match
+    df_nomatch = df_join[df_join['_merge'] == 'left_only']
+    df_nomatch = df_nomatch[columns]
+
     # Repeat for gazetter entries with null lat-long just for clarity of a match
     #  1.)
     df_county_gaz_null = df_county_gaz_null.assign(merge_round=1)
@@ -541,15 +555,24 @@ def merge_data(df_county_gaz, df_county_cens):
 
     # 5.)
     df_county_gaz_null = df_county_gaz_null.assign(merge_round=5)
-    print("Merging if simplified census name matches simlified gazetter entry WITHOUT location data")
+    print("Merging if simplified census name matches simplified gazetter entry with location data")
     df_join = merge_STATA(df_nomatch, df_county_gaz_null, how='left', left_on='name', right_on='base_merge_name')
     # set aside merged locations
     df_merged10 = df_join[df_join['_merge'] == 'both']
+    # select locations without a match
+    df_nomatch = df_join[df_join['_merge'] == 'left_only']
+    df_nomatch = df_nomatch[columns]
+
+    # 5.)
+    print("Merging if simplified census name matches simlified gazetter entry WITHOUT location data")
+    df_join = merge_STATA(df_nomatch, df_county_gaz_null, how='left', left_on='name', right_on='base_merge_name_alt')
+    # set aside merged locations
+    df_merged10_alt = df_join[df_join['_merge'] == 'both']
 
     # concat all dataFrames Dataframes
     df_combined = pd.concat(
-        [df_merged1, df_merged2, df_merged3, df_merged4, df_merged5, df_merged6, df_merged7, df_merged8, df_merged9,
-         df_merged10], ignore_index=True)
+        [df_merged1, df_merged2, df_merged3, df_merged4, df_merged5, df_merged5_alt, df_merged6, df_merged7, df_merged8, df_merged9,
+         df_merged10, df_merged10_alt], ignore_index=True)
 
     # How well did we do?
     # Note: We now do not consider duplicates but compare to the original excel-file entries
@@ -877,7 +900,7 @@ def run_full_merge():
     for county in df_counties['orig_name']:
         count+=1
         print(count)
-        if county not in ['obertaunus','langensalza', 'siegkreis']:
+        if county not in ['solingen']:
             cont_flag = False
             continue
         # if cont_flag:
