@@ -203,6 +203,8 @@ def gazetter_data(county_names, df, map_names, prussia_map):
     # create column for merge
     df_county['merge_name'] = df_county['name'].str.strip()
     df_county['merge_name'] = df_county['merge_name'].str.lower()
+    # spaces in merge_name removed to match with spaces in alt_name removed.
+    df_county['merge_name'] = df_county['merge_name'].str.replace(r'\s','')
     print(f'The number of locations in the Gazetter with "{county_names[0]}" in any of their columns is {df_county.shape[0]}')
     print(f'The number of locations in the Gazetter with inside the county boundary is {df_county[df_county["geometry"].notnull()].shape[0]}')
     # rename name column to indicate gazetter
@@ -251,31 +253,11 @@ def gazetter_data(county_names, df, map_names, prussia_map):
                 classes.append(dictionary[match])
             return sorted(classes, reverse=True)[0]
 
-
-    # test the check_type function
-    """
-    testset = ["D. u. Rg.", 
-               "GutsB.", 
-               "D. u. Dom. (aus: Mittel, Nieder u. Ober D.)", 
-               "St.", 
-               "St. u. D.", # to check if ordering works
-               "D. u. GutsB."   # to check if ordering works
-              ]
-    
-    for string in testset:
-        print("\n" + string)
-        print(check_type(string))
-    """
-
     # Now that we are all set let's create the column `class`. And inspect if it worked
     # make sure column Type has only string values
     df_county['Type'] = df_county['Type'].astype(str)
     # make apply check_type() function
     df_county['class_gazetter'] = df_county['Type'].apply(check_type)
-
-    # # check results
-    # print("checking the class_gazette column has been successfully and accurately added")
-
 
     # special change for obertaunus, remove tuanus for matching purposes.
     # if county_names[0] == 'obertaunus':
@@ -419,10 +401,13 @@ def census_data(county, df_census):
         df_county.loc[df_county['name'].str.contains('Haiduck'), 'name'] = 'Bismarckhütte OSchles.'
         df_county.loc[df_county['name'].str.contains('Lagiewni'), 'name'] = 'Hohenlinde'
 
-    # adjustement counties which want bracket data appended directly instead of with a space.
-    if county in ['obertaunus','langensalza', 'siegkreis']:
-        df_county.loc[df_county['orig_name'].str.contains(r'\(.*\)'), 'alt_name'] = df_county.loc[df_county['orig_name'].str.contains(r'\(.*\)'), 'alt_name'].str.replace(r'\s', '')
-        #df_county.loc[df_county['orig_name'].str.contains('(Klein)'), 'alt_name'] = df_county.loc[df_county['orig_name'].str.contains('(Klein)'), 'alt_name'].str.replace(r'\s', '')
+    # remove spaces in alt-name to account for case of 'kleinvargula' and 'klein vargula' simultaneously.
+    df_county['alt_name'] = df_county['alt_name'].str.replace(r'\s', '')
+
+    # # adjustement counties which want bracket data appended directly instead of with a space.
+    # if county in ['obertaunus','langensalza', 'siegkreis']:
+    #     df_county.loc[df_county['orig_name'].str.contains(r'\(.*\)'), 'alt_name'] = df_county.loc[df_county['orig_name'].str.contains(r'\(.*\)'), 'alt_name'].str.replace(r'\s', '')
+    #     #df_county.loc[df_county['orig_name'].str.contains('(Klein)'), 'alt_name'] = df_county.loc[df_county['orig_name'].str.contains('(Klein)'), 'alt_name'].str.replace(r'\s', '')
 
     # strip all [name, alt_name, suffix] of white spaces
     # df_master.replace(np.nan, '', regex=True)
@@ -433,6 +418,7 @@ def census_data(county, df_census):
     #print(df_county[['orig_name', 'name', 'alt_name']])
     print(f'Number of locations in master file equals {df_county.shape[0]}')
     print(df_county[['orig_name','name','alt_name']])
+
 
     return df_county
 
@@ -891,7 +877,7 @@ def run_full_merge():
     for county in df_counties['orig_name']:
         count+=1
         print(count)
-        if county not in ['fraustadt']:
+        if county not in ['obertaunus','langensalza', 'siegkreis']:
             cont_flag = False
             continue
         # if cont_flag:
