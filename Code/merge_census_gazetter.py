@@ -501,7 +501,7 @@ def merge_data(df_county_gaz, df_county_cens):
     df_nomatch = df_join[df_join['_merge'] == 'left_only']
     df_nomatch = df_nomatch[columns]
 
-    # 5.)
+    # 5.1)
     print("Merging if simplified census name matches simplified gazetter entry with location data")
     df_join = merge_STATA(df_nomatch, df_county_gaz_latlong, how='left', left_on='name', right_on='base_merge_name_alt')
     # set aside merged locations
@@ -510,7 +510,7 @@ def merge_data(df_county_gaz, df_county_cens):
     df_nomatch = df_join[df_join['_merge'] == 'left_only']
     df_nomatch = df_nomatch[columns]
 
-    # Repeat for gazetter entries with null lat-long just for clarity of a match
+    # Repeat for gazetter entries with either no location data, or location data outside the county just for clarity of a match
     #  1.)
     df_county_gaz_null = df_county_gaz_null.assign(merge_round=1)
     print("Merging if detailed census name and class match a gazetter entry WITHOUT location data")
@@ -563,7 +563,7 @@ def merge_data(df_county_gaz, df_county_cens):
     df_nomatch = df_join[df_join['_merge'] == 'left_only']
     df_nomatch = df_nomatch[columns]
 
-    # 5.)
+    # 5.1)
     print("Merging if simplified census name matches simlified gazetter entry WITHOUT location data")
     df_join = merge_STATA(df_nomatch, df_county_gaz_null, how='left', left_on='name', right_on='base_merge_name_alt')
     # set aside merged locations
@@ -666,7 +666,6 @@ def lev_dist_calc(df_county_cens, df_county_gaz, df_merged, county, df_join):
     if not os.path.exists(os.path.join(WORKING_DIRECTORY, 'Output/', county)):
         os.makedirs(os.path.join(WORKING_DIRECTORY, 'Output/', county))
 
-
     df_remainder.to_excel(os.path.join(WORKING_DIRECTORY, 'Output/', county, 'Gazetter_Remainder_' + county + '.xlsx'),
                           index=False)
 
@@ -679,11 +678,13 @@ def lev_dist_calc(df_county_cens, df_county_gaz, df_merged, county, df_join):
     # extract entries in gazetter data:
     unmatched_name_gazetter = df_county_gaz['merge_name']
     unmatched_base_name_gazetter = df_county_gaz['base_merge_name'].astype(str)
+    unmatched_base_name_alt_gazetter = df_county_gaz['base_merge_name_alt'].astype(str)
 
     # call levenshtein comparison function
     levenshtein_matches = lev_array(unmatched_name_gazetter, unmatched_name_census)
     levenshtein_matches += lev_array(unmatched_name_gazetter, unmatched_altname_census)
     levenshtein_matches += lev_array(unmatched_base_name_gazetter, unmatched_name_census)
+    levenshtein_matches += lev_array(unmatched_base_name_alt_gazetter, unmatched_name_census)
 
     # convert list of lists to data frame
     unmatched_census_df = unmatched_census_df.assign(lev_match=unmatched_census_df['name'])
