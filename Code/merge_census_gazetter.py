@@ -411,7 +411,6 @@ def census_data(county, df_census):
 
     #print(df_county[['orig_name', 'name', 'alt_name']])
     print(f'Number of locations in master file equals {df_county.shape[0]}')
-    print(df_county[['name','alt_name']])
 
     return df_county
 
