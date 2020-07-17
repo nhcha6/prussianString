@@ -400,11 +400,7 @@ def census_data(county, df_census):
     df_county.loc[df_county['orig_name'].str.contains('Schöppingen'), 'name'] = \
     df_county.loc[df_county['orig_name'].str.contains('Schöppingen'), 'orig_name'].str.split().str[-1]
 
-    # if name contains a dash and alt_name is null:
-    df_county.loc[(df_county["alt_name"].isnull()) & (df_county["orig_name"].str.contains('-')), "name"] = df_county.loc[(df_county["alt_name"].isnull()) & (df_county["orig_name"].str.contains('-')), "orig_name"].str.split('-').str[0]
-    df_county.loc[(df_county["alt_name"].isnull()) & (df_county["orig_name"].str.contains('-')), "alt_name"] = df_county.loc[(df_county["alt_name"].isnull()) & (df_county["orig_name"].str.contains('-')), "orig_name"].str.split('-').str[-1]
-
-    # if no alt-name and starts with c, change to a k and visa versa (can't change both at the same time unfortunately
+    # if no alt-name and starts with c, change to a k and visa versa (can't change both at the same time unfortunately)
     df_county.loc[(df_county["alt_name"].isnull()) & (df_county["name"].str.startswith('c')), "alt_name"] = df_county.loc[(df_county["alt_name"].isnull()) & (df_county["name"].str.startswith('c')), "name"].str.replace('c','k')
     df_county.loc[(df_county["alt_name"].isnull()) & (df_county["name"].str.startswith('k')), "alt_name"] = df_county.loc[(df_county["alt_name"].isnull()) & (df_county["name"].str.startswith('k')), "name"].str.replace('k', 'c')
     df_county.loc[(df_county["alt_name"].isnull()) & (df_county["name"].str.contains('oe')), "alt_name"] = df_county.loc[(df_county["alt_name"].isnull()) & (df_county["name"].str.contains('oe')), "name"].str.replace('oe', 'ö')
@@ -553,26 +549,51 @@ def merge_data(df_county_gaz, df_county_cens):
     df_nomatch = df_join[df_join['_merge'] == 'left_only']
     df_nomatch = df_nomatch[columns]
 
+    ########### LAST EFFORT: FINAL STRING CLEANING AND MATCH AGAINST ALTERNATIVE GAZETTER NAMES  ###########
+
+    # before final merge, split at the dash and compare to all!
+    print(df_nomatch[['orig_name', 'name', 'alt_name']])
+    df_nomatch.loc[df_nomatch["orig_name"].str.contains('-'), "alt_name"] = df_nomatch.loc[df_nomatch["orig_name"].str.contains('-'), "name"].str.split('-').str[0]
+    df_nomatch.loc[df_nomatch["orig_name"].str.contains('-'), "name"] = df_nomatch.loc[df_nomatch["orig_name"].str.contains('-'), "name"].str.split('-').str[-1]
+    df_nomatch.loc[df_nomatch["alt_name"].isnull(), "alt_name"] = 'xxxxxxxxxx'
+    print(df_nomatch[['orig_name', 'name', 'alt_name']])
+
     # 5.)
-    df_county_gaz_null = df_county_gaz_null.assign(merge_round=5)
+    df_county_gaz = df_county_gaz.assign(merge_round=5)
     print("Merging if simplified census name matches simplified gazetter entry with location data")
-    df_join = merge_STATA(df_nomatch, df_county_gaz_null, how='left', left_on='name', right_on='base_merge_name')
+    df_join = merge_STATA(df_nomatch, df_county_gaz, how='left', left_on='name', right_on='base_merge_name')
     # set aside merged locations
     df_merged10 = df_join[df_join['_merge'] == 'both']
     # select locations without a match
     df_nomatch = df_join[df_join['_merge'] == 'left_only']
     df_nomatch = df_nomatch[columns]
 
-    # 5.1)
-    print("Merging if simplified census name matches simlified gazetter entry WITHOUT location data")
-    df_join = merge_STATA(df_nomatch, df_county_gaz_null, how='left', left_on='name', right_on='base_merge_name_alt')
+    print("Merging if simplified census name matches simplified gazetter entry with location data")
+    df_join = merge_STATA(df_nomatch, df_county_gaz, how='left', left_on='alt_name', right_on='base_merge_name')
+    # set aside merged locations
+    df_merged10_2 = df_join[df_join['_merge'] == 'both']
+    # select locations without a match
+    df_nomatch = df_join[df_join['_merge'] == 'left_only']
+    df_nomatch = df_nomatch[columns]
+
+    print("Merging if simplified census name matches simplified gazetter entry with location data")
+    df_join = merge_STATA(df_nomatch, df_county_gaz, how='left', left_on='name', right_on='base_merge_name_alt')
     # set aside merged locations
     df_merged10_alt = df_join[df_join['_merge'] == 'both']
+    # select locations without a match
+    df_nomatch = df_join[df_join['_merge'] == 'left_only']
+    df_nomatch = df_nomatch[columns]
+
+    # 5.1)
+    print("Merging if simplified census name matches simlified gazetter entry WITHOUT location data")
+    df_join = merge_STATA(df_nomatch, df_county_gaz, how='left', left_on='alt_name', right_on='base_merge_name_alt')
+    # set aside merged locations
+    df_merged10_alt_2 = df_join[df_join['_merge'] == 'both']
 
     # concat all dataFrames Dataframes
     df_combined = pd.concat(
         [df_merged1, df_merged2, df_merged3, df_merged4, df_merged5, df_merged5_alt, df_merged6, df_merged7, df_merged8, df_merged9,
-         df_merged10, df_merged10_alt], ignore_index=True)
+         df_merged10, df_merged10_2, df_merged10_alt, df_merged10_alt_2], ignore_index=True)
 
     # How well did we do?
     # Note: We now do not consider duplicates but compare to the original excel-file entries
@@ -902,7 +923,7 @@ def run_full_merge():
     for county in df_counties['orig_name']:
         count+=1
         print(count)
-        if county not in ['fraustadt']:
+        if county not in ['duesseldorf landkreis']:
             cont_flag = False
             continue
         # if cont_flag:
