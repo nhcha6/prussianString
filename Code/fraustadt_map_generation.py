@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from tabulate import tabulate
 
+# set working directory path as location of data
+wdir = '/Users/nicolaschapman/Documents/PrussianStringMatching/Data/'
 
 def merge_STATA(master, using, how='outer', on=None, left_on=None, right_on=None, indicator=True,
                 suffixes=('_master','_using'), drop=None, keep=None, drop_merge=False):
@@ -124,27 +126,27 @@ def extract_map_names(df_counties_census, prussia_map):
 
 
 
-    # set to FRAUSTADT so code doesnt break
-    print('Census without map')
-    for county in df_counties_census['orig_name']:
-        if county not in county_map_name.keys():
-            county_map_name[county] = set(['FRAUSTADT'])
-            print(county)
-
-    print('unmatched map')
-    for county in prussia_map["NAME"]:
-        flag = True
-        for maps in county_map_name.values():
-            if county in maps:
-                flag = False
-        if flag:
-            print(county)
-
-    print('double map')
-    for county, maps in county_map_name.items():
-        if len(maps)>1:
-            print(county)
-            print(maps)
+    # # set to FRAUSTADT so code doesnt break
+    # print('Census without map')
+    # for county in df_counties_census['orig_name']:
+    #     if county not in county_map_name.keys():
+    #         county_map_name[county] = set(['FRAUSTADT'])
+    #         print(county)
+    #
+    # print('unmatched map')
+    # for county in prussia_map["NAME"]:
+    #     flag = True
+    #     for maps in county_map_name.values():
+    #         if county in maps:
+    #             flag = False
+    #     if flag:
+    #         print(county)
+    #
+    # print('double map')
+    # for county, maps in county_map_name.items():
+    #     if len(maps)>1:
+    #         print(county)
+    #         print(maps)
 
     return county_map_name
 
@@ -279,13 +281,13 @@ def extract_county_names(df_census):
 
     return df_counties
 
-# set working directory path as location of data
-wdir = '/Users/nicolaschapman/Documents/PrussianStringMatching/Data/'
 
 def plot_county(county):
+
     # load saved data frame containing census file
     df_census = pd.read_pickle(wdir + "census_df_pickle")
     census_no = df_census[df_census['county']==county].shape[0]
+    print(f'\n{county}')
     print(f'''There are {census_no} entries in the census''')
 
     # read in map of prussia
@@ -305,34 +307,27 @@ def plot_county(county):
     except FileNotFoundError:
         print('nope')
         return
+
     county_merged_df.drop(columns=["geometry"], inplace=True)
 
     # we only want entries with long-lat data
     county_merged_df = county_merged_df[(county_merged_df['lat']!=0)&(county_merged_df['lat'].notnull())]
 
-    # extract county poly
-    county_gdf = prussia_map[prussia_map['NAME']==map_names[county].pop()]
-    county_gdf.index = range(0,county_gdf.shape[0])
-    county_poly = county_gdf.loc[0,'geometry']
-    county_poly_buffered = county_gdf.buffer(0.05)[0]
-
-    # update to only keep the locations deemed to be within the county
-    #fraustadt_merged_df = fraustadt_merged_df.reindex(index_in_county)
-
     # add a little bit of noise to ensure that identical data points are split slightly
-    county_merged_df['lat'] = np.random.normal(county_merged_df['lat'],0.01)
-    county_merged_df['lng'] = np.random.normal(county_merged_df['lng'],0.01)
+    county_merged_df['lat'] = np.random.normal(county_merged_df['lat'], 0.01)
+    county_merged_df['lng'] = np.random.normal(county_merged_df['lng'], 0.01)
 
-    data_headers = ['locname','type','pop_male', 'pop_female', 'pop_tot','protestant','catholic','other_christ', 'jew', 'other_relig', 'age_under_ten', 'literate', 'school_noinfo', 'illiterate']
+    data_headers = ['locname', 'type', 'pop_male', 'pop_female', 'pop_tot', 'protestant', 'catholic', 'other_christ',
+                    'jew', 'other_relig', 'age_under_ten', 'literate', 'school_noinfo', 'illiterate']
 
     # convert all data to proportion of population
     for data in data_headers:
         if data in ['pop_tot', 'type', 'locname']:
             continue
-            county_merged_df[data] = county_merged_df[data]/county_merged_df['pop_tot']
+            county_merged_df[data] = county_merged_df[data] / county_merged_df['pop_tot']
 
     # convert to geo data frame
-    county_merged_gdf = gpd.GeoDataFrame(county_merged_df, geometry=gpd.points_from_xy(county_merged_df.lng,county_merged_df.lat))
+    county_merged_gdf = gpd.GeoDataFrame(county_merged_df,geometry=gpd.points_from_xy(county_merged_df.lng, county_merged_df.lat))
     county_merged_gdf.crs = {'init': 'epsg:4326'}
 
     # if there are multiple matches, simply take the second for now. !! still need better duplicate distinction.
@@ -340,36 +335,59 @@ def plot_county(county):
     loc_no = county_merged_gdf.shape[0]
     print(f'''There are {loc_no} locations after duplicates are dropped''')
 
-    # #drop those outside buffered poly
-    # county_merged_gdf = county_merged_gdf[county_merged_gdf.within(county_poly_buffered)]
-    # within_no = county_merged_gdf.shape[0]
-    # print(f'''There are {within_no} locations within the county''')
-
-    # plot
-    # ax = gplt.voronoi(county_merged_gdf, clip=county_gdf.simplify(0.001))
-
-    #
-    # gplt.voronoi(county_merged_gdf, hue='protestant', clip=county_gdf.simplify(0.001), legend = True)
-    # gplt.voronoi(county_merged_gdf, hue='literate', clip=county_gdf.simplify(0.001), legend = True)
-
-
-    ax = gplt.pointplot(county_merged_gdf)
-    gplt.polyplot(prussia_map, ax = ax)
-    count = 0
-    for map in prussia_map["NAME"]:
-        count+=1
-        county_gdf = prussia_map[prussia_map['NAME'] == map]
-        county_gdf.index = range(0, county_gdf.shape[0])
+    within_tot = 0
+    for map_name in map_names[county]:
+        print(map_name)
+        # extract county poly
+        county_gdf = prussia_map[prussia_map['NAME']==map_name]
+        county_gdf.index = range(0,county_gdf.shape[0])
+        county_poly = county_gdf.loc[0,'geometry']
         county_poly_buffered = county_gdf.buffer(0.05)[0]
-        # drop those outside buffered poly
-        if county_merged_gdf[county_merged_gdf.within(county_poly_buffered)].shape[0]>0:
-            print(map)
-            print(county_merged_gdf[county_merged_gdf.within(county_poly_buffered)].shape[0])
 
+        #drop those outside buffered poly
+        county_merged_temp = county_merged_gdf[county_merged_gdf.within(county_poly_buffered)]
+        within_no = county_merged_temp.shape[0]
+        print(f'''There are {within_no} locations within the county''')
+        within_tot += within_no
+
+    if (within_tot/loc_no)<0.9:
+        print('!!!!!!!!!!!!!!!!!')
+
+
+    # # plot
+    # # ax = gplt.voronoi(county_merged_gdf, clip=county_gdf.simplify(0.001))
+    #
+    # #
+    # # gplt.voronoi(county_merged_gdf, hue='protestant', clip=county_gdf.simplify(0.001), legend = True)
+    # # gplt.voronoi(county_merged_gdf, hue='literate', clip=county_gdf.simplify(0.001), legend = True)
+    #
+    #
     # ax = gplt.pointplot(county_merged_gdf)
-    # gplt.polyplot(county_gdf.buffer(0.05),ax=ax)
-    # gplt.polyplot(county_gdf,ax=ax)
+    # gplt.polyplot(prussia_map, ax = ax)
+    # count = 0
+    # for map in prussia_map["NAME"]:
+    #     count+=1
+    #     county_gdf = prussia_map[prussia_map['NAME'] == map]
+    #     county_gdf.index = range(0, county_gdf.shape[0])
+    #     county_poly_buffered = county_gdf.buffer(0.05)[0]
+    #     # drop those outside buffered poly
+    #     if county_merged_gdf[county_merged_gdf.within(county_poly_buffered)].shape[0]>0:
+    #         print(map)
+    #         print(county_merged_gdf[county_merged_gdf.within(county_poly_buffered)].shape[0])
+    #
+    # # ax = gplt.pointplot(county_merged_gdf)
+    # # gplt.polyplot(county_gdf.buffer(0.05),ax=ax)
+    # # gplt.polyplot(county_gdf,ax=ax)
+    #
+    # plt.show()
 
-    plt.show()
 
-plot_county('zell')
+# load saved data frame containing census file
+df_census = pd.read_pickle(wdir + "census_df_pickle")
+
+# extract county name data frame from census
+df_counties = extract_county_names(df_census)
+
+for county in df_counties['orig_name']:
+    plot_county(county)
+
