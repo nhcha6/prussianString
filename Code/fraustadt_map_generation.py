@@ -120,16 +120,8 @@ def extract_map_names(df_counties_census, prussia_map):
     county_map_name['sanct goar'] = set(['SANKT GOAR'])
     county_map_name['otterndorf'] = set(['HADELN'])
     county_map_name['kolberg-koerlin'] = set(['FURSTENTUM'])
-
-
-
-
-    # set to FRAUSTADT so code doesnt break
-    print('Census without map')
-    for county in df_counties_census['orig_name']:
-        if county not in county_map_name.keys():
-            county_map_name[county] = set(['FRAUSTADT'])
-            print(county)
+    county_map_name['zell'] = set(['ZELL'])
+    county_map_name['stettin'] = set(['STETTIN'])
 
     print('unmatched map')
     for county in prussia_map["NAME"]:
@@ -329,7 +321,7 @@ def plot_county(county):
     for data in data_headers:
         if data in ['pop_tot', 'type', 'locname']:
             continue
-            county_merged_df[data] = county_merged_df[data]/county_merged_df['pop_tot']
+        county_merged_df[data] = county_merged_df[data]/county_merged_df['pop_tot']
 
     # convert to geo data frame
     county_merged_gdf = gpd.GeoDataFrame(county_merged_df, geometry=gpd.points_from_xy(county_merged_df.lng,county_merged_df.lat))
@@ -341,35 +333,35 @@ def plot_county(county):
     print(f'''There are {loc_no} locations after duplicates are dropped''')
 
     # #drop those outside buffered poly
-    # county_merged_gdf = county_merged_gdf[county_merged_gdf.within(county_poly_buffered)]
-    # within_no = county_merged_gdf.shape[0]
-    # print(f'''There are {within_no} locations within the county''')
+    county_merged_gdf = county_merged_gdf[county_merged_gdf.within(county_poly_buffered)]
+    within_no = county_merged_gdf.shape[0]
+    print(f'''There are {within_no} locations within the county''')
 
     # plot
-    # ax = gplt.voronoi(county_merged_gdf, clip=county_gdf.simplify(0.001))
+    ax = gplt.voronoi(county_merged_gdf, clip=county_gdf.simplify(0.001))
+    gplt.pointplot(county_merged_gdf, ax=ax)
 
-    #
-    # gplt.voronoi(county_merged_gdf, hue='protestant', clip=county_gdf.simplify(0.001), legend = True)
-    # gplt.voronoi(county_merged_gdf, hue='literate', clip=county_gdf.simplify(0.001), legend = True)
+    gplt.voronoi(county_merged_gdf, hue='protestant', clip=county_gdf.simplify(0.001), legend = True)
+    gplt.voronoi(county_merged_gdf, hue='literate', clip=county_gdf.simplify(0.001), legend = True)
 
-
-    ax = gplt.pointplot(county_merged_gdf)
-    gplt.polyplot(prussia_map, ax = ax)
-    count = 0
-    for map in prussia_map["NAME"]:
-        count+=1
-        county_gdf = prussia_map[prussia_map['NAME'] == map]
-        county_gdf.index = range(0, county_gdf.shape[0])
-        county_poly_buffered = county_gdf.buffer(0.05)[0]
-        # drop those outside buffered poly
-        if county_merged_gdf[county_merged_gdf.within(county_poly_buffered)].shape[0]>0:
-            print(map)
-            print(county_merged_gdf[county_merged_gdf.within(county_poly_buffered)].shape[0])
-
+    # # ax = gplt.pointplot(county_merged_gdf)
+    # # gplt.polyplot(prussia_map, ax = ax)
+    # count = 0
+    # for map in prussia_map["NAME"]:
+    #     count+=1
+    #     county_gdf = prussia_map[prussia_map['NAME'] == map]
+    #     county_gdf.index = range(0, county_gdf.shape[0])
+    #     county_poly_buffered = county_gdf.buffer(0.05)[0]
+    #     # drop those outside buffered poly
+    #     if county_merged_gdf[county_merged_gdf.within(county_poly_buffered)].shape[0]>0:
+    #         print(map)
+    #         print(county_merged_gdf[county_merged_gdf.within(county_poly_buffered)].shape[0])
+    #         gplt.polyplot(county_gdf)
     # ax = gplt.pointplot(county_merged_gdf)
-    # gplt.polyplot(county_gdf.buffer(0.05),ax=ax)
-    # gplt.polyplot(county_gdf,ax=ax)
+    # #gplt.polyplot(county_gdf.buffer(0.05),ax=ax)
+    # #gplt.polyplot(county_gdf,ax=ax)
+    # gplt.polyplot(prussia_map, ax=ax)
 
     plt.show()
 
-plot_county('zell')
+plot_county('schlawe')
