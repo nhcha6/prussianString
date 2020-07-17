@@ -937,7 +937,7 @@ def run_full_merge():
     for county in df_counties['orig_name']:
         count+=1
         print(count)
-        if county not in ['fraustadt']:
+        if county not in ['kolberg-koerlin', 'kroeben', 'otterndorf', 'rinteln']:
             cont_flag = False
             continue
         # if cont_flag:
