@@ -346,6 +346,12 @@ def census_data(county, df_census):
                               "locname": "orig_name"
                               }, inplace=True)
 
+    # add flag denoting if an matching municipality exists with different class:
+    df_county = df_county.assign(alt_class=False)
+    for name in df_county['orig_name']:
+        if df_county[df_county['orig_name'] == name].shape[0]>1:
+            df_county.loc[df_county['orig_name']==name, 'alt_class'] = True
+
     ########## GENERAL CLEAN CENSUS DATA FOR MATCHING ##########
 
     # now we need to clean location names
@@ -431,7 +437,6 @@ def census_data(county, df_census):
 
 
     return df_county
-
 
 """----------------------------------- MERGE THE TWO DATA FRAMES -----------------------------------"""
 def merge_data(df_county_gaz, df_county_cens):
@@ -757,6 +762,8 @@ def lev_array(unmatched_gazetter_name, unmatched_census_name):
         if census_name == 'nan' or len(census_name) == 0:
             continue
         for gazetter_name in unmatched_gazetter_name:
+            if gazetter_name == 'nan' or len(gazetter_name) == 0:
+                continue
             if gazetter_name[0] != census_name[0]:
                 continue
             ldist = levenshtein(gazetter_name, census_name)
@@ -919,13 +926,18 @@ def run_full_merge():
     df_gazetter = pd.read_pickle(WORKING_DIRECTORY + "df_pickle")
     print(f'The number of entries in Meyer Gazetter is: {df_gazetter.shape[0]}')
 
+    # figure out which counties to run
+    # load merge data
+    df_merge_data = pd.read_excel(os.path.join(WORKING_DIRECTORY, 'Output', 'MergeDetails.xlsx'))
+    #df_bad_match = df_merge_data[df_merge_data['match_perc'] < 85]
+
     # build up list of possible county names to be searched against gazetter.
     cont_flag = True
     count = 0
     for county in df_counties['orig_name']:
         count+=1
         print(count)
-        if county not in ['duesseldorf landkreis']:
+        if county not in ['fraustadt']:
             cont_flag = False
             continue
         # if cont_flag:
