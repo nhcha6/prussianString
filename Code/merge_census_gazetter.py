@@ -389,6 +389,7 @@ def census_data(county, df_census):
         df_county['suffix'].notnull(), ['suffix', 'name']].apply(lambda x: ' '.join(x), axis=1)
 
     ############ MORE SPECIFIC CLEANING MADE BY ANALYSING MISSED MATCHES ############
+
     # may need to do this after everything else to ensure other matches are attempted first.
 
     # for entries with a) or b) etc, extract the last word as the 'name':
@@ -399,6 +400,9 @@ def census_data(county, df_census):
     df_county.loc[df_county['orig_name'].str.contains(r'\(Stadt\)'), 'orig_name'].str.split().str[-1]
     df_county.loc[df_county['orig_name'].str.contains('Schöppingen'), 'name'] = \
     df_county.loc[df_county['orig_name'].str.contains('Schöppingen'), 'orig_name'].str.split().str[-1]
+
+    # update alt_name for those with a dash in it (further alt-name cleaning done later)
+    df_county.loc[(df_county["alt_name"].isnull()) & (df_county["name"].str.contains('-')), "alt_name"] = df_county.loc[(df_county["alt_name"].isnull()) & (df_county["name"].str.contains('-')), "name"].str.split('-').str[0]
 
     # if no alt-name and starts with c, change to a k and visa versa (can't change both at the same time unfortunately)
     df_county.loc[(df_county["alt_name"].isnull()) & (df_county["name"].str.startswith('c')), "alt_name"] = df_county.loc[(df_county["alt_name"].isnull()) & (df_county["name"].str.startswith('c')), "name"].str.replace('c','k')
@@ -552,11 +556,9 @@ def merge_data(df_county_gaz, df_county_cens):
     ########### LAST EFFORT: FINAL STRING CLEANING AND MATCH AGAINST ALTERNATIVE GAZETTER NAMES  ###########
 
     # before final merge, split at the dash and compare to all!
-    print(df_nomatch[['orig_name', 'name', 'alt_name']])
     df_nomatch.loc[df_nomatch["orig_name"].str.contains('-'), "alt_name"] = df_nomatch.loc[df_nomatch["orig_name"].str.contains('-'), "name"].str.split('-').str[0]
     df_nomatch.loc[df_nomatch["orig_name"].str.contains('-'), "name"] = df_nomatch.loc[df_nomatch["orig_name"].str.contains('-'), "name"].str.split('-').str[-1]
     df_nomatch.loc[df_nomatch["alt_name"].isnull(), "alt_name"] = 'xxxxxxxxxx'
-    print(df_nomatch[['orig_name', 'name', 'alt_name']])
 
     # 5.)
     df_county_gaz = df_county_gaz.assign(merge_round=5)
