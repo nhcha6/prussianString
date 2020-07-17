@@ -271,7 +271,7 @@ def gazetter_data(county_names, df, map_names, prussia_map):
     df_county['class_gazetter'] = df_county['Type'].apply(check_type)
 
 
-    print(df_county[['merge_name', 'base_merge_name', 'base_merge_name_alt']])
+    #print(df_county[['merge_name', 'base_merge_name', 'base_merge_name_alt']])
 
     return df_county
 
@@ -427,7 +427,7 @@ def census_data(county, df_census):
 
     #print(df_county[['orig_name', 'name', 'alt_name']])
     print(f'Number of locations in master file equals {df_county.shape[0]}')
-    print(df_county[['orig_name','name','alt_name']])
+    #print(df_county[['orig_name','name','alt_name']])
 
 
     return df_county
@@ -578,10 +578,6 @@ def merge_data(df_county_gaz, df_county_cens):
     # Note: We now do not consider duplicates but compare to the original excel-file entries
     exact_match_perc = (df_county_cens.shape[0] - df_join[df_join["_merge"] == "left_only"].shape[0]) / df_county_cens.shape[0] * 100
 
-    # !! To-Do: Eliminate Duplicates: duplicates currently only occur when two matches are found on the same round of
-    # a merge. Gazetter entries without location data are only considered for the municipalities in the census that do not
-    # find a match that has location data.
-
     return df_combined, exact_match_perc, df_join
 
 def merge_STATA(master, using, how='outer', on=None, left_on=None, right_on=None, indicator=True,
@@ -688,9 +684,14 @@ def lev_dist_calc(df_county_cens, df_county_gaz, df_merged, county, df_join):
 
     # convert list of lists to data frame
     unmatched_census_df = unmatched_census_df.assign(lev_match=unmatched_census_df['name'])
-    for match in levenshtein_matches:
-        unmatched_census_df.loc[unmatched_census_df['lev_match'] == match[0], 'lev_match'] = match[1]
+    unmatched_census_df = unmatched_census_df.assign(lev_dist=100)
 
+    for match in levenshtein_matches:
+        unmatched_census_df.loc[(unmatched_census_df['name'] == match[0])&(unmatched_census_df['lev_dist'] > match[2]), 'lev_match'] = match[1]
+        unmatched_census_df.loc[(unmatched_census_df['name'] == match[0])&(unmatched_census_df['lev_dist'] > match[2]), 'lev_dist'] = match[2]
+        unmatched_census_df.loc[(unmatched_census_df['alt_name'] == match[0])&(unmatched_census_df['lev_dist'] > match[2]), 'lev_match'] = match[1]
+        unmatched_census_df.loc[(unmatched_census_df['alt_name'] == match[0])&(unmatched_census_df['lev_dist'] > match[2]), 'lev_dist'] = match[2]
+   
     return unmatched_census_df, levenshtein_matches
 
 def levenshtein(seq1, seq2):
@@ -901,7 +902,7 @@ def run_full_merge():
     for county in df_counties['orig_name']:
         count+=1
         print(count)
-        if county not in ['solingen']:
+        if county not in ['fraustadt']:
             cont_flag = False
             continue
         # if cont_flag:
