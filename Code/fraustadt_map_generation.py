@@ -118,6 +118,8 @@ def extract_map_names(df_counties_census, prussia_map):
     county_map_name['ost-sternberg'] = set(['OSTSTERNBERG'])
     county_map_name['west-sternberg'] = set(['WESTSTERNBERG'])
     county_map_name['sanct goar'] = set(['SANKT GOAR'])
+    county_map_name['otterndorf'] = set(['HADELN'])
+    county_map_name['kolberg-koerlin'] = set(['FURSTENTUM'])
 
 
 
@@ -277,7 +279,7 @@ def extract_county_names(df_census):
 
     return df_counties
 
-county = "kroeben"
+county = "kolberg-koerlin"
 county_upper = county.upper()
 
 # set working directory path as location of data
@@ -301,9 +303,10 @@ map_names = extract_map_names(df_counties, prussia_map)
 
 # read in merged data
 county_merged_df = pd.read_excel(wdir+"Output/" + county + "/Merged_Data_" + county + '.xlsx')
+county_merged_df.drop(columns=["geometry"], inplace=True)
 
 # we only want entries with long-lat data
-county_merged_df = county_merged_df[county_merged_df['lat']!=0]
+county_merged_df = county_merged_df[(county_merged_df['lat']!=0)&(county_merged_df['lat'].notnull())]
 
 # extract county poly
 county_gdf = prussia_map[prussia_map['NAME']==map_names[county].pop()]
@@ -335,10 +338,10 @@ county_merged_gdf = county_merged_gdf.drop_duplicates(subset=['loc_id'], keep='f
 loc_no = county_merged_gdf.shape[0]
 print(f'''There are {loc_no} locations after duplicates are dropped''')
 
-# drop those outside buffered poly
-county_merged_gdf = county_merged_gdf[county_merged_gdf.within(county_poly_buffered)]
-within_no = county_merged_gdf.shape[0]
-print(f'''There are {within_no} locations within the county''')
+# #drop those outside buffered poly
+# county_merged_gdf = county_merged_gdf[county_merged_gdf.within(county_poly_buffered)]
+# within_no = county_merged_gdf.shape[0]
+# print(f'''There are {within_no} locations within the county''')
 
 # plot
 # ax = gplt.voronoi(county_merged_gdf, clip=county_gdf.simplify(0.001))
@@ -347,9 +350,24 @@ print(f'''There are {within_no} locations within the county''')
 # gplt.voronoi(county_merged_gdf, hue='protestant', clip=county_gdf.simplify(0.001), legend = True)
 # gplt.voronoi(county_merged_gdf, hue='literate', clip=county_gdf.simplify(0.001), legend = True)
 
-ax = gplt.polyplot(county_gdf)
-gplt.pointplot(county_merged_gdf, ax=ax)
-gplt.polyplot(county_gdf.buffer(0.05),ax=ax)
+
+ax = gplt.pointplot(county_merged_gdf)
+gplt.polyplot(prussia_map, ax = ax)
+count = 0
+for map in prussia_map["NAME"]:
+    count+=1
+    county_gdf = prussia_map[prussia_map['NAME'] == map]
+    county_gdf.index = range(0, county_gdf.shape[0])
+    county_poly_buffered = county_gdf.buffer(0.05)[0]
+    # drop those outside buffered poly
+    if county_merged_gdf[county_merged_gdf.within(county_poly_buffered)].shape[0]>0:
+        print(map)
+        print(county_merged_gdf[county_merged_gdf.within(county_poly_buffered)].shape[0])
+
+# ax = gplt.pointplot(county_merged_gdf)
+# gplt.polyplot(county_gdf.buffer(0.05),ax=ax)
+# gplt.polyplot(county_gdf,ax=ax)
+
 
 
 plt.show()
