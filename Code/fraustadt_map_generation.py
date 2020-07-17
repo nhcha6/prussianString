@@ -122,6 +122,8 @@ def extract_map_names(df_counties_census, prussia_map):
     county_map_name['sanct goar'] = set(['SANKT GOAR'])
     county_map_name['otterndorf'] = set(['HADELN'])
     county_map_name['kolberg-koerlin'] = set(['FURSTENTUM'])
+    county_map_name['zell'] = set(['ZELL'])
+    county_map_name['stettin'] = set(['STETTIN'])
 
 
 
@@ -388,6 +390,6 @@ df_census = pd.read_pickle(wdir + "census_df_pickle")
 # extract county name data frame from census
 df_counties = extract_county_names(df_census)
 
-for county in df_counties['orig_name']:
+for county in ['muenster landkreis', 'muenster stadtkreis', 'muenster stadtkreis', 'erfurt stadtkreis', 'stettin stadt', 'zell','obertaunus', 'hagen', 'ohlau', 'schildberg']:
     plot_county(county)
 
