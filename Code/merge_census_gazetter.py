@@ -691,7 +691,7 @@ def lev_dist_calc(df_county_cens, df_county_gaz, df_merged, county, df_join):
         unmatched_census_df.loc[(unmatched_census_df['name'] == match[0])&(unmatched_census_df['lev_dist'] > match[2]), 'lev_dist'] = match[2]
         unmatched_census_df.loc[(unmatched_census_df['alt_name'] == match[0])&(unmatched_census_df['lev_dist'] > match[2]), 'lev_match'] = match[1]
         unmatched_census_df.loc[(unmatched_census_df['alt_name'] == match[0])&(unmatched_census_df['lev_dist'] > match[2]), 'lev_dist'] = match[2]
-   
+
     return unmatched_census_df, levenshtein_matches
 
 def levenshtein(seq1, seq2):
@@ -751,8 +751,8 @@ def lev_merge(df_county_gaz, df_merge, unmatched_census_df):
     columns = list(unmatched_census_df.columns)
 
     # split df_fraustadt into lat/long == null and lat/long!=null
-    df_county_gaz_latlong = df_county_gaz[df_county_gaz['lat'] != 0]
-    df_county_gaz_null = df_county_gaz[df_county_gaz['lat'] == 0]
+    df_county_gaz_latlong = df_county_gaz[df_county_gaz['geometry'].notnull()]
+    df_county_gaz_null = df_county_gaz[df_county_gaz['geometry'].isnull()]
 
     # merge round 6 for levenshtein merge
     df_county_gaz_latlong = df_county_gaz_latlong.assign(merge_round=6)
