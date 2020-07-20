@@ -354,7 +354,7 @@ def extract_map_names(df_counties_census, prussia_map):
 
     return county_map_name
 
-def multiple_maps(map_name, county_gdf):
+def multiple_maps(map_name, county_gdf, county):
     if map_name == 'KONIGSBERG':
         if county == 'koenigsberg':
             county_gdf = county_gdf[county_gdf.index == 1]
@@ -471,7 +471,7 @@ def gazetter_data_map(df_gazetter, map_names, prussia_map, county):
         county_gdf.index = range(0, county_gdf.shape[0])
 
         # if there are multiple regions in the map data with the same name, extract the correct one.
-        county_gdf = multiple_maps(map_name, county_gdf)
+        county_gdf = multiple_maps(map_name, county_gdf, county)
 
         # special case for rotenberg which has two distinct regions
         county_poly_buffered = county_gdf.buffer(0.05)[0]
@@ -1117,9 +1117,9 @@ def run_full_merge():
     for county in df_counties['orig_name']:
         count+=1
         print(count)
-        if county not in ['kassel landkreis', 'kassel stadtkreis']:
-            cont_flag = False
-            continue
+        # if county not in ['kassel landkreis', 'kassel stadtkreis']:
+        #     cont_flag = False
+        #     continue
         # if cont_flag:
         #     continue
         current_county = df_counties.loc[df_counties['orig_name'] == county]

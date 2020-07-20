@@ -289,7 +289,7 @@ def extract_county_names(df_census):
 
     return df_counties
 
-def multiple_maps(map_name, county_gdf):
+def multiple_maps(map_name, county_gdf, county):
     if map_name == 'KONIGSBERG':
         if county == 'koenigsberg':
             county_gdf = county_gdf[county_gdf.index == 1]
@@ -434,7 +434,7 @@ def plot_county(county):
     county_gdf.index = range(0,county_gdf.shape[0])
 
     # if there are multiple regions in the map data with the same name, extract the correct one.
-    county_gdf = multiple_maps(map_name, county_gdf)
+    county_gdf = multiple_maps(map_name, county_gdf, county)
 
     county_poly_buffered = county_gdf.buffer(0.05)[0]
 
