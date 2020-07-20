@@ -189,7 +189,7 @@ def gazetter_data(county_names, df, map_names, prussia_map):
         print(county_names)
 
     # find gazetter entries from map:
-    df_map_county = gazetter_data_map(df, map_names, prussia_map)
+    df_map_county = gazetter_data_map(df, map_names, prussia_map, county_names[0])
     df.drop(columns=["geometry"], inplace=True)
 
     # concatenate that too:
@@ -346,7 +346,7 @@ def extract_map_names(df_counties_census, prussia_map):
 
     return county_map_name
 
-def gazetter_data_map(df_gazetter, map_names, prussia_map):
+def gazetter_data_map(df_gazetter, map_names, prussia_map, county):
     gdf_gazetter = gpd.GeoDataFrame(df_gazetter, geometry=gpd.points_from_xy(df_gazetter.lng, df_gazetter.lat))
     df_gazetter_map_county = None
     for map_name in map_names:
@@ -355,6 +355,12 @@ def gazetter_data_map(df_gazetter, map_names, prussia_map):
         # extract county poly
         county_gdf = prussia_map[prussia_map['NAME'] == map_name]
         county_gdf.index = range(0, county_gdf.shape[0])
+        # if there are multiple regions in the map data with the same name, extract the correct one.
+        if county_gdf.shape[0] > 1:
+            if county == 'koenigsberg':
+                county_gdf = county_gdf[(county_gdf.index == 1) | (county_gdf.index == 2)]
+            if county == 'koenigsberg in der neumark':
+                county_gdf = county_gdf[county_gdf.index == 0]
         county_poly_buffered = county_gdf.buffer(0.05)[0]
         within = gdf_gazetter[gdf_gazetter.within(county_poly_buffered)]
         index_in_county = set()
@@ -995,7 +1001,7 @@ def run_full_merge():
     for county in df_counties['orig_name']:
         count+=1
         print(count)
-        if county not in ['kammin']:
+        if county not in ['koenigsberg', 'koenigsberg in der neumark']:
             cont_flag = False
             continue
         # if cont_flag:

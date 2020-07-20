@@ -302,14 +302,16 @@ def plot_county(county):
     # we only want entries with long-lat data
     county_merged_df = county_merged_df[(county_merged_df['lat']!=0)&(county_merged_df['lat'].notnull())]
 
-    # extract county poly
+    # extract county poly, need to loop not pop.
     county_gdf = prussia_map[prussia_map['NAME']==map_names[county].pop()]
     county_gdf.index = range(0,county_gdf.shape[0])
-    county_poly = county_gdf.loc[0,'geometry']
+    # if there are multiple regions in the map data with the same name, extract the correct one.
+    if county_gdf.shape[0]>1:
+        if county == 'koenigsberg':
+            county_gdf = county_gdf[(county_gdf.index == 1) | (county_gdf.index == 2)]
+        if county == 'koenigsberg in der neumark':
+            county_gdf = county_gdf[county_gdf.index ==0]
     county_poly_buffered = county_gdf.buffer(0.05)[0]
-
-    # update to only keep the locations deemed to be within the county
-    #fraustadt_merged_df = fraustadt_merged_df.reindex(index_in_county)
 
     # add a little bit of noise to ensure that identical data points are split slightly
     county_merged_df['lat'] = np.random.normal(county_merged_df['lat'],0.01)
@@ -337,31 +339,39 @@ def plot_county(county):
     within_no = county_merged_gdf.shape[0]
     print(f'''There are {within_no} locations within the county''')
 
-    # plot
-    ax = gplt.voronoi(county_merged_gdf, clip=county_gdf.simplify(0.001))
-    gplt.pointplot(county_merged_gdf, ax=ax)
+    #plot voronoi
+    # ax = gplt.voronoi(county_merged_gdf, clip=county_gdf.simplify(0.001))
+    # gplt.pointplot(county_merged_gdf, ax=ax)
+    # gplt.voronoi(county_merged_gdf, hue='protestant', clip=county_gdf.simplify(0.001), legend = True)
+    # gplt.voronoi(county_merged_gdf, hue='literate', clip=county_gdf.simplify(0.001), legend = True)
 
-    gplt.voronoi(county_merged_gdf, hue='protestant', clip=county_gdf.simplify(0.001), legend = True)
-    gplt.voronoi(county_merged_gdf, hue='literate', clip=county_gdf.simplify(0.001), legend = True)
-
-    # # ax = gplt.pointplot(county_merged_gdf)
-    # # gplt.polyplot(prussia_map, ax = ax)
-    # count = 0
-    # for map in prussia_map["NAME"]:
-    #     count+=1
-    #     county_gdf = prussia_map[prussia_map['NAME'] == map]
-    #     county_gdf.index = range(0, county_gdf.shape[0])
-    #     county_poly_buffered = county_gdf.buffer(0.05)[0]
-    #     # drop those outside buffered poly
-    #     if county_merged_gdf[county_merged_gdf.within(county_poly_buffered)].shape[0]>0:
-    #         print(map)
-    #         print(county_merged_gdf[county_merged_gdf.within(county_poly_buffered)].shape[0])
-    #         gplt.polyplot(county_gdf)
+    # plot points, region, buffered region and map.
     # ax = gplt.pointplot(county_merged_gdf)
-    # #gplt.polyplot(county_gdf.buffer(0.05),ax=ax)
-    # #gplt.polyplot(county_gdf,ax=ax)
+    # gplt.polyplot(county_gdf.buffer(0.05),ax=ax)
+    # gplt.polyplot(county_gdf, facecolor='red',ax=ax)
     # gplt.polyplot(prussia_map, ax=ax)
+
+    count = 0
+    for map in prussia_map["NAME"]:
+        count+=1
+        county_gdf = prussia_map[prussia_map['NAME'] == map]
+        county_gdf.index = range(0, county_gdf.shape[0])
+        county_poly_buffered = county_gdf.buffer(0.05)[0]
+        # drop those outside buffered poly
+        if county_merged_gdf[county_merged_gdf.within(county_poly_buffered)].shape[0]>0:
+            print(map)
+            print(county_merged_gdf[county_merged_gdf.within(county_poly_buffered)].shape[0])
+            bx = gplt.polyplot(county_gdf, facecolor='red')
+            gplt.polyplot(prussia_map, ax=bx)
 
     plt.show()
 
-plot_county('schlawe')
+
+
+counties = ['koenigsberg']#, 'posen landkreis', 'bromberg', 'breslau landkreis', 'liegnitz stadtkreis', 'liegnitz landkreis', 'erfurt landkreis', 'husum', 'hannover landkreis', 'rotenburg', 'muenster landkreis', 'recklinghausen', 'arnsberg', 'kassel landkreis', 'frankfurt am main', 'essen landkreis', 'solingen', 'gladbach', 'muelheim am rhein', 'koeln stadtkreis', 'trier landkreis', 'aachen landkreis', 'marienburg i. pr. ', 'neustadt i. pr. ', 'rosenberg i. pr.']
+
+for county in counties:
+    plot_county(county)
+
+
+
