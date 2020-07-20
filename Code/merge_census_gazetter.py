@@ -150,6 +150,9 @@ def extract_county_names(df_census):
     df_counties.loc[df_counties['orig_name'] == 'inowraclaw', 'man_name'] = 'inowrazlaw'
     df_counties.loc[df_counties['orig_name'] == 'langensalza', 'man_name'] = 'weimar'
     df_counties.loc[df_counties['orig_name'] == 'rinteln', 'man_name'] = 'grafschaft schaumburg'
+    df_counties.loc[df_counties['orig_name'] == 'essen landkreis', 'man_name'] = 'geldern'
+    df_counties.loc[df_counties['orig_name'] == 'thorn', 'man_name'] = 'marienwerder'
+    df_counties.loc[df_counties['orig_name'] == 'Communion-Bergamts-Bezirk Goslar', 'man_name'] = 'gandersheim'
 
 
     # strip all [name, alt_name, suffix] of white spaces
@@ -287,6 +290,9 @@ def extract_map_names(df_counties_census, prussia_map):
         count = -1
         for county in df_counties_census[header]:
             count += 1
+            if county in ['stadt', 'gross', 'ost', 'west', 'stader', 'sankt']:
+                continue
+
             try:
                 for map_county in prussia_map["NAME"]:
                     if county.upper() in map_county:
@@ -298,11 +304,45 @@ def extract_map_names(df_counties_census, prussia_map):
             except AttributeError:
                 continue
 
-    # !! unmatched to do: set to FRAUSTADT so code doesnt break
-    for county in df_counties_census['orig_name']:
-        if county not in county_map_name.keys():
-            county_map_name[county] = set(['FRAUSTADT'])
+    # manually enter remaining:
+    county_map_name['rinteln'] = set(["SCHAUMBURG"])
+    county_map_name['kroeben'] = set(["KROBEN"])
+    county_map_name['osterode'] = set(["OSTERODE"])
+    county_map_name['jerichow I'] = set(["JERICHOW I"])
+    county_map_name['jerichow II'] = set(["JERICHOW II"])
+    county_map_name['stader geestkreis'] = set(["STADER GEESTKREIS"])
+    county_map_name['lingen'] = set(["LINGEN"])
+    county_map_name['koenigsberg in der neumark'] = set(["KONIGSBERG"])
+    county_map_name['friedeberg in der neumark'] = set(["FRIEDEBERG"])
+    county_map_name['mansfeld gebirgskreis'] = set(["MANSFELDER GEBIRGSKR"])
+    county_map_name['mansfeld seekreis'] = set(["MANSFELDER SEEKREIS"])
+    county_map_name['erfurt stadtkreis'] = set(['WIPPERFURTH', 'ERFURT'])
+    county_map_name['erfurt landkreis'] = set(['WIPPERFURTH', 'ERFURT'])
+    county_map_name['osterode a.H.'] = set(['OSTERODE AM HARZ'])
+    county_map_name['muelheim am rhein'] = set(['MULHEIM'])
+    county_map_name['ost-sternberg'] = set(['OSTSTERNBERG'])
+    county_map_name['west-sternberg'] = set(['WESTSTERNBERG'])
+    county_map_name['sanct goar'] = set(['SANKT GOAR'])
+    county_map_name['otterndorf'] = set(['HADELN'])
+    county_map_name['kolberg-koerlin'] = set(['FURSTENTUM'])
+    county_map_name['zell'] = set(['ZELL'])
+    county_map_name['stettin'] = set(['STETTIN'])
+    county_map_name['thorn'] = set(['THORN'])
+
+    print('unmatched map')
+    for county in prussia_map["NAME"]:
+        flag = True
+        for maps in county_map_name.values():
+            if county in maps:
+                flag = False
+        if flag:
             print(county)
+
+    print('double map')
+    for county, maps in county_map_name.items():
+        if len(maps)>1:
+            print(county)
+            print(maps)
 
     return county_map_name
 
