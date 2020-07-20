@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from tabulate import tabulate
 
+# set working directory path as location of data
+wdir = '/Users/nicolaschapman/Documents/PrussianStringMatching/Data/'
 
 def merge_STATA(master, using, how='outer', on=None, left_on=None, right_on=None, indicator=True,
                 suffixes=('_master','_using'), drop=None, keep=None, drop_merge=False):
@@ -122,6 +124,13 @@ def extract_map_names(df_counties_census, prussia_map):
     county_map_name['kolberg-koerlin'] = set(['FURSTENTUM'])
     county_map_name['zell'] = set(['ZELL'])
     county_map_name['stettin'] = set(['STETTIN'])
+    county_map_name['erfurt stadtkreis'] = set(['ERFURT'])
+    county_map_name['erfurt landkreis'] = set(['ERFURT'])
+    county_map_name['rotenburg kassel'] = set(['ROTENBURG'])
+    county_map_name['rotenburg stade'] = set(['ROTENBURG'])
+    county_map_name['muenster stadtkreis'] = set(['MUNSTER'])
+    county_map_name['muenster landkreis'] = set(['MUNSTER'])
+    county_map_name['essen landkreis'] = set(['ESSEN'])
 
     print('unmatched map')
     for county in prussia_map["NAME"]:
@@ -145,6 +154,10 @@ def extract_county_names(df_census):
     counties = []
     for county in df_census['county']:
         if county in counties:
+            if county == 'rotenberg':
+                counties.append('rotenberg kassel')
+                counties.append('rotenberg stade')
+                counties.remove('rotenberg')
             continue
         else:
             counties.append(county)
@@ -253,7 +266,7 @@ def extract_county_names(df_census):
     df_counties.loc[df_counties['orig_name'] == 'kassel stadtkreis', 'man_name'] = 'cassel'
     df_counties.loc[df_counties['orig_name'] == 'kassel landkreis', 'man_name'] = 'cassel'
     df_counties.loc[df_counties['orig_name'] == 'adelnau', 'man_name'] = 'ostrowo'
-    df_counties.loc[df_counties['orig_name'] == 'rotenburg', 'man_name'] = 'zeven'
+    df_counties.loc[df_counties['orig_name'] == 'rotenburg stade', 'man_name'] = 'zeven'
     df_counties.loc[df_counties['orig_name'] == 'emden', 'man_name'] = 'norden'
     df_counties.loc[df_counties['orig_name'] == 'aurich', 'man_name'] = 'wittmund'
     df_counties.loc[df_counties['orig_name'] == 'marienburg b.H.', 'man_name'] = 'alfeld'
@@ -262,6 +275,9 @@ def extract_county_names(df_census):
     df_counties.loc[df_counties['orig_name'] == 'inowraclaw', 'man_name'] = 'inowrazlaw'
     df_counties.loc[df_counties['orig_name'] == 'langensalza', 'man_name'] = 'weimar'
     df_counties.loc[df_counties['orig_name'] == 'rinteln', 'man_name'] = 'grafschaft schaumburg'
+    df_counties.loc[df_counties['orig_name'] == 'essen landkreis', 'man_name'] = 'geldern'
+    df_counties.loc[df_counties['orig_name'] == 'thorn', 'man_name'] = 'marienwerder'
+    df_counties.loc[df_counties['orig_name'] == 'Communion-Bergamts-Bezirk Goslar', 'man_name'] = 'gandersheim'
 
 
     # strip all [name, alt_name, suffix] of white spaces
@@ -271,12 +287,109 @@ def extract_county_names(df_census):
 
     return df_counties
 
-# set working directory path as location of data
-wdir = '/Users/nicolaschapman/Documents/PrussianStringMatching/Data/'
+def multiple_maps(map_name, county_gdf):
+    if map_name == 'KONIGSBERG':
+        if county == 'koenigsberg':
+            county_gdf = county_gdf[county_gdf.index == 1]
+        if county == 'koenigsberg in der neumark':
+            county_gdf = county_gdf[county_gdf.index == 0]
+        if county == 'koenigsberg stadt':
+            county_gdf = county_gdf[county_gdf.index == 2]
+    if map_name == 'POSEN':
+        if county == 'posen landkreis':
+            county_gdf = county_gdf[county_gdf.index == 1]
+        if county == 'posen stadtkreis':
+            county_gdf = county_gdf[county_gdf.index == 0]
+    if map_name == 'BRESLAU':
+        if county == 'breslau landkreis':
+            county_gdf = county_gdf[county_gdf.index == 1]
+        if county == 'breslau stadtkreis':
+            county_gdf = county_gdf[county_gdf.index == 0]
+    if map_name == 'LIEGNITZ':
+        if county == 'liegnitz landkreis':
+            county_gdf = county_gdf[county_gdf.index == 1]
+        if county == 'liegnitz stadtkreis':
+            county_gdf = county_gdf[county_gdf.index == 0]
+    if map_name == 'ERFURT':
+        if county == 'erfurt landkreis':
+            county_gdf = county_gdf[county_gdf.index == 1]
+        if county == 'erfurt stadtkreis':
+            county_gdf = county_gdf[county_gdf.index == 0]
+    if map_name == 'HANNOVER':
+        if county == 'hannover landkreis':
+            county_gdf = county_gdf[county_gdf.index == 0]
+        if county == 'hannover stadtkreis':
+            county_gdf = county_gdf[county_gdf.index == 1]
+    if map_name == 'ROTENBURG':
+        if county == 'rotenburg stade':
+            county_gdf = county_gdf[county_gdf.index == 0]
+        if county == 'rotenburg kassel':
+            county_gdf = county_gdf[county_gdf.index == 1]
+    if map_name == 'MUNSTER':
+        if county == 'muenster stadtkreis':
+            county_gdf = county_gdf[county_gdf.index == 0]
+        if county == 'muenster landkreis':
+            county_gdf = county_gdf[county_gdf.index == 1]
+    if map_name == 'KASSEL':
+        if county == 'kassel stadtkreis':
+            county_gdf = county_gdf[county_gdf.index == 0]
+        if county == 'kassel landkreis':
+            county_gdf = county_gdf[county_gdf.index == 1]
+    if map_name == 'FRANKFURT':
+        if county == 'frankfurt am main':
+            county_gdf = county_gdf[county_gdf.index == 1]
+        if county == 'frankfurt an der oder':
+            county_gdf = county_gdf[county_gdf.index == 0]
+    if map_name == 'ESSEN':
+        if county == 'essen stadtkreis':
+            county_gdf = county_gdf[county_gdf.index == 0]
+        if county == 'essen landkreis':
+            county_gdf = county_gdf[county_gdf.index == 1]
+    if map_name == 'MULHEIM':
+        if county == 'muelheim am rhein':
+            county_gdf = county_gdf[county_gdf.index == 1]
+        if county == 'muelheim a.d. Ruhr':
+            county_gdf = county_gdf[county_gdf.index == 0]
+    if map_name == 'KOLN':
+        if county == 'koeln stadtkreis':
+            county_gdf = county_gdf[county_gdf.index == 1]
+        if county == 'koeln landkreis':
+            county_gdf = county_gdf[county_gdf.index == 0]
+    if map_name == 'TRIER':
+        if county == 'trier stadtkreis':
+            county_gdf = county_gdf[county_gdf.index == 0]
+        if county == 'trier landkreis':
+            county_gdf = county_gdf[county_gdf.index == 1]
+    if map_name == 'AACHEN':
+        if county == 'aachen stadtkreis':
+            county_gdf = county_gdf[county_gdf.index == 1]
+        if county == 'aachen landkreis':
+            county_gdf = county_gdf[county_gdf.index == 0]
+    if map_name == 'MARIENBURG':
+        if county == 'marienburg b.H.':
+            county_gdf = county_gdf[county_gdf.index == 0]
+        if county == 'marienburg i. pr. ':
+            county_gdf = county_gdf[county_gdf.index == 1]
+    if map_name == 'NEUSTADT':
+        if county == 'neustadt i. pr. ':
+            county_gdf = county_gdf[county_gdf.index == 1]
+        if county == 'neustadt in oberschlesien':
+            county_gdf = county_gdf[county_gdf.index == 0]
+    if map_name == 'ROSENBERG':
+        if county == 'rosenberg i. pr.':
+            county_gdf = county_gdf[county_gdf.index == 1]
+        if county == 'rosenberg':
+            county_gdf = county_gdf[county_gdf.index == 0]
+    return county_gdf
 
 def plot_county(county):
     # load saved data frame containing census file
     df_census = pd.read_pickle(wdir + "census_df_pickle")
+
+    # account for two different rotenburgs:
+    df_census.loc[(df_census['county']=='rotenburg')&(df_census['regbez']=='kassel'),'county'] = 'rotenburg kassel'
+    df_census.loc[(df_census['county']=='rotenburg')&(df_census['regbez']=='stade'),'county'] = 'rotenburg stade'
+
     census_no = df_census[df_census['county']==county].shape[0]
     print(f'''There are {census_no} entries in the census''')
 
@@ -303,14 +416,14 @@ def plot_county(county):
     county_merged_df = county_merged_df[(county_merged_df['lat']!=0)&(county_merged_df['lat'].notnull())]
 
     # extract county poly, need to loop not pop.
-    county_gdf = prussia_map[prussia_map['NAME']==map_names[county].pop()]
+    map_name = map_names[county].pop()
+    print(map_name)
+    county_gdf = prussia_map[prussia_map['NAME']==map_name]
     county_gdf.index = range(0,county_gdf.shape[0])
+
     # if there are multiple regions in the map data with the same name, extract the correct one.
-    if county_gdf.shape[0]>1:
-        if county == 'koenigsberg':
-            county_gdf = county_gdf[(county_gdf.index == 1) | (county_gdf.index == 2)]
-        if county == 'koenigsberg in der neumark':
-            county_gdf = county_gdf[county_gdf.index ==0]
+    county_gdf = multiple_maps(map_name, county_gdf)
+
     county_poly_buffered = county_gdf.buffer(0.05)[0]
 
     # add a little bit of noise to ensure that identical data points are split slightly
@@ -334,7 +447,7 @@ def plot_county(county):
     loc_no = county_merged_gdf.shape[0]
     print(f'''There are {loc_no} locations after duplicates are dropped''')
 
-    # #drop those outside buffered poly
+    # drop those outside buffered poly
     county_merged_gdf = county_merged_gdf[county_merged_gdf.within(county_poly_buffered)]
     within_no = county_merged_gdf.shape[0]
     print(f'''There are {within_no} locations within the county''')
@@ -344,31 +457,31 @@ def plot_county(county):
     # gplt.pointplot(county_merged_gdf, ax=ax)
     # gplt.voronoi(county_merged_gdf, hue='protestant', clip=county_gdf.simplify(0.001), legend = True)
     # gplt.voronoi(county_merged_gdf, hue='literate', clip=county_gdf.simplify(0.001), legend = True)
+    # plt.show()
 
     # plot points, region, buffered region and map.
-    # ax = gplt.pointplot(county_merged_gdf)
-    # gplt.polyplot(county_gdf.buffer(0.05),ax=ax)
-    # gplt.polyplot(county_gdf, facecolor='red',ax=ax)
-    # gplt.polyplot(prussia_map, ax=ax)
-
-    count = 0
-    for map in prussia_map["NAME"]:
-        count+=1
-        county_gdf = prussia_map[prussia_map['NAME'] == map]
-        county_gdf.index = range(0, county_gdf.shape[0])
-        county_poly_buffered = county_gdf.buffer(0.05)[0]
-        # drop those outside buffered poly
-        if county_merged_gdf[county_merged_gdf.within(county_poly_buffered)].shape[0]>0:
-            print(map)
-            print(county_merged_gdf[county_merged_gdf.within(county_poly_buffered)].shape[0])
-            bx = gplt.polyplot(county_gdf, facecolor='red')
-            gplt.polyplot(prussia_map, ax=bx)
-
+    ax = gplt.polyplot(county_gdf.buffer(0.05))
+    gplt.pointplot(county_merged_gdf, ax=ax)
+    gplt.polyplot(county_gdf, facecolor='red',ax=ax)
+    gplt.polyplot(prussia_map, ax=ax)
     plt.show()
 
+    # count = 0
+    # for map in ['HAIGERLOCH', 'HECHINGEN', 'SIGMARINGEN', 'GAMMERTINGEN']:
+    # #for map in prussia_map["NAME"]:
+    #     count+=1
+    #     county_gdf = prussia_map[prussia_map['NAME'] == map]
+    #     county_gdf.index = range(0, county_gdf.shape[0])
+    #     county_poly_buffered = county_gdf.buffer(0.05)[0]
+    #     # drop those outside buffered poly
+    #     if county_merged_gdf[county_merged_gdf.within(county_poly_buffered)].shape[0]>=0:
+    #         print(map)
+    #         print(county_merged_gdf[county_merged_gdf.within(county_poly_buffered)].shape[0])
+    #         bx = gplt.polyplot(county_gdf, facecolor='red')
+    #         gplt.polyplot(prussia_map, ax=bx)
+    # plt.show()
 
-
-counties = ['koenigsberg']#, 'posen landkreis', 'bromberg', 'breslau landkreis', 'liegnitz stadtkreis', 'liegnitz landkreis', 'erfurt landkreis', 'husum', 'hannover landkreis', 'rotenburg', 'muenster landkreis', 'recklinghausen', 'arnsberg', 'kassel landkreis', 'frankfurt am main', 'essen landkreis', 'solingen', 'gladbach', 'muelheim am rhein', 'koeln stadtkreis', 'trier landkreis', 'aachen landkreis', 'marienburg i. pr. ', 'neustadt i. pr. ', 'rosenberg i. pr.']
+counties =  ['rosenberg i. pr.', 'rosenberg']
 
 for county in counties:
     plot_county(county)
