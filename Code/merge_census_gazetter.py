@@ -327,12 +327,21 @@ def extract_map_names(df_counties_census, prussia_map):
     county_map_name['kolberg-koerlin'] = set(['FURSTENTUM'])
     county_map_name['zell'] = set(['ZELL'])
     county_map_name['stettin'] = set(['STETTIN'])
+    county_map_name['stettin stadt'] = set(['STETTIN'])
     county_map_name['erfurt stadtkreis'] = set(['ERFURT'])
     county_map_name['erfurt landkreis'] = set(['ERFURT'])
     county_map_name['rotenburg kassel'] = set(['ROTENBURG'])
     county_map_name['rotenburg stade'] = set(['ROTENBURG'])
     county_map_name['muenster stadtkreis'] = set(['MUNSTER'])
     county_map_name['muenster landkreis'] = set(['MUNSTER'])
+    county_map_name['essen landkreis'] = set(['ESSEN'])
+    county_map_name['thorn'] = set(['THORN'])
+    county_map_name['stettin stadt'] = set(['STETTIN'])
+    county_map_name['obertaunus'] = set(['OBERTAUNUSKREIS'])
+    county_map_name['hagen'] = set(['HAGEN'])
+    county_map_name['ohlau'] = set(['OHLAU'])
+    county_map_name['schildberg'] = set(['SCHILDBERG'])
+
 
     print('unmatched map')
     for county in prussia_map["NAME"]:
@@ -342,12 +351,6 @@ def extract_map_names(df_counties_census, prussia_map):
                 flag = False
         if flag:
             print(county)
-
-    print('double map')
-    for county, maps in county_map_name.items():
-        if len(maps)>1:
-            print(county)
-            print(maps)
 
     return county_map_name
 
@@ -443,6 +446,16 @@ def multiple_maps(map_name, county_gdf):
         if county == 'rosenberg i. pr.':
             county_gdf = county_gdf[county_gdf.index == 1]
         if county == 'rosenberg':
+            county_gdf = county_gdf[county_gdf.index == 0]
+    if map_name == 'DUSSELDORF':
+        if county == 'duesseldorf landkreis':
+            county_gdf = county_gdf[county_gdf.index == 0]
+        if county == 'duesseldorf stadtkreis':
+            county_gdf = county_gdf[county_gdf.index == 1]
+    if map_name == 'KREFELD':
+        if county == 'krefeld stadtkreis':
+            county_gdf = county_gdf[county_gdf.index == 1]
+        if county == 'krefeld landkreis':
             county_gdf = county_gdf[county_gdf.index == 0]
     return county_gdf
 
@@ -1104,7 +1117,7 @@ def run_full_merge():
     for county in df_counties['orig_name']:
         count+=1
         print(count)
-        if county not in ['muenster landkreis', 'muenster stadtkreis']:
+        if county not in ['kassel landkreis', 'kassel stadtkreis']:
             cont_flag = False
             continue
         # if cont_flag:
@@ -1147,7 +1160,6 @@ def run_full_merge():
 
         # calculate quality stats
         qual_stat(exact_match_perc, df_merged_nodups, county, levenshtein_matches)
-
 
 # run merge
 run_full_merge()
