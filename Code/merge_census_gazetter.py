@@ -399,6 +399,7 @@ def census_data(county, df_census):
         if county == 'krefeld stadtkreis':
             df_county = df_county.assign(name='crefeld')
 
+
     # extract alternative writing of location name: in parantheses after =
     df_county['alt_name'] = df_county['name'].str.extract(r'.+\(=(.*)\).*', expand=True)
     # extract alternative name without appendixes such as bei in
@@ -442,14 +443,11 @@ def census_data(county, df_census):
     df_county.loc[df_county['orig_name'].str.contains(r'\(Stadt\)'), 'orig_name'].str.split().str[-1]
     df_county.loc[df_county['orig_name'].str.contains('Schöppingen'), 'name'] = \
     df_county.loc[df_county['orig_name'].str.contains('Schöppingen'), 'orig_name'].str.split().str[-1]
+    # sanct needs to be replaced by sankt
+    df_county.loc[df_county['orig_name'].str.contains('Sanct'), 'name'] = df_county.loc[df_county['orig_name'].str.contains('Sanct'), 'orig_name'].str.replace('Sanct', 'Sankt')
 
     # update alt_name for those with a dash in it (further alt-name cleaning done later)
     df_county.loc[(df_county["alt_name"].isnull()) & (df_county["name"].str.contains('-')), "alt_name"] = df_county.loc[(df_county["alt_name"].isnull()) & (df_county["name"].str.contains('-')), "name"].str.split('-').str[0]
-
-    # if no alt-name and starts with c, change to a k and visa versa (can't change both at the same time unfortunately)
-    df_county.loc[(df_county["alt_name"].isnull()) & (df_county["name"].str.startswith('c')), "alt_name"] = df_county.loc[(df_county["alt_name"].isnull()) & (df_county["name"].str.startswith('c')), "name"].str.replace('c','k')
-    df_county.loc[(df_county["alt_name"].isnull()) & (df_county["name"].str.startswith('k')), "alt_name"] = df_county.loc[(df_county["alt_name"].isnull()) & (df_county["name"].str.startswith('k')), "name"].str.replace('k', 'c')
-    df_county.loc[(df_county["alt_name"].isnull()) & (df_county["name"].str.contains('oe')), "alt_name"] = df_county.loc[(df_county["alt_name"].isnull()) & (df_county["name"].str.contains('oe')), "name"].str.replace('oe', 'ö')
 
     # adjustement for beuthen name changes:
     if county == 'beuthen':
@@ -460,6 +458,8 @@ def census_data(county, df_census):
 
     # remove spaces in alt-name to account for case of 'kleinvargula' and 'klein vargula' simultaneously.
     df_county['alt_name'] = df_county['alt_name'].str.replace(r'\s', '')
+    # also remove commasl
+    df_county['alt_name'] = df_county['alt_name'].str.replace(r',', '')
 
     # strip all [name, alt_name, suffix] of white spaces
     # df_master.replace(np.nan, '', regex=True)
@@ -469,7 +469,7 @@ def census_data(county, df_census):
 
     #print(df_county[['orig_name', 'name', 'alt_name']])
     print(f'Number of locations in master file equals {df_county.shape[0]}')
-    #print(df_county[['orig_name','name','alt_name']])
+    print(df_county[['orig_name','name','alt_name']])
 
 
     return df_county
@@ -800,8 +800,18 @@ def lev_array(unmatched_gazetter_name, unmatched_census_name):
         for gazetter_name in unmatched_gazetter_name:
             if gazetter_name == 'nan' or len(gazetter_name) == 0:
                 continue
+
+            # default is that must start with the same letter, except for umlaut c/k exception.
             if gazetter_name[0] != census_name[0]:
-                continue
+                if not (census_name[0:2] == 'ue' and gazetter_name[0] == 'ü'):
+                    if not (census_name[0:2] == 'oe' and gazetter_name[0] == 'ö'):
+                        if not (census_name[0]=='c' and gazetter_name[0]=='k'):
+                            if not (census_name[0] == 'k' and gazetter_name[0] == 'c'):
+                                continue
+                else:
+                    print(census_name)
+                    print(gazetter_name)
+
             ldist = levenshtein(gazetter_name, census_name)
             if ldist / len(census_name) < 0.3:
                 entry = [census_name, gazetter_name, ldist / len(census_name)]
@@ -973,9 +983,9 @@ def run_full_merge():
     for county in df_counties['orig_name']:
         count+=1
         print(count)
-        # if county not in ['kolberg-koerlin', 'kroeben', 'otterndorf', 'rinteln']:
-        #     cont_flag = False
-        #     continue
+        if county not in ['eiderstedt','fraustadt']:
+            cont_flag = False
+            continue
         # if cont_flag:
         #     continue
         current_county = df_counties.loc[df_counties['orig_name'] == county]
