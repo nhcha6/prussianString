@@ -150,6 +150,9 @@ def extract_county_names(df_census):
     df_counties.loc[df_counties['orig_name'] == 'inowraclaw', 'man_name'] = 'inowrazlaw'
     df_counties.loc[df_counties['orig_name'] == 'langensalza', 'man_name'] = 'weimar'
     df_counties.loc[df_counties['orig_name'] == 'rinteln', 'man_name'] = 'grafschaft schaumburg'
+    df_counties.loc[df_counties['orig_name'] == 'essen landkreis', 'man_name'] = 'geldern'
+    df_counties.loc[df_counties['orig_name'] == 'thorn', 'man_name'] = 'marienwerder'
+    df_counties.loc[df_counties['orig_name'] == 'Communion-Bergamts-Bezirk Goslar', 'man_name'] = 'gandersheim'
 
 
     # strip all [name, alt_name, suffix] of white spaces
@@ -324,6 +327,7 @@ def extract_map_names(df_counties_census, prussia_map):
     county_map_name['kolberg-koerlin'] = set(['FURSTENTUM'])
     county_map_name['zell'] = set(['ZELL'])
     county_map_name['stettin'] = set(['STETTIN'])
+    county_map_name['thorn'] = set(['THORN'])
 
     print('unmatched map')
     for county in prussia_map["NAME"]:
@@ -399,6 +403,8 @@ def census_data(county, df_census):
         if county == 'krefeld stadtkreis':
             df_county = df_county.assign(name='crefeld')
 
+    # sanct needs to be replaced by sankt
+    df_county.loc[df_county['orig_name'].str.contains('Sanct'), 'name'] = df_county.loc[df_county['orig_name'].str.contains('Sanct'), 'orig_name'].str.replace('Sanct', 'Sankt')
 
     # extract alternative writing of location name: in parantheses after =
     df_county['alt_name'] = df_county['name'].str.extract(r'.+\(=(.*)\).*', expand=True)
@@ -443,8 +449,6 @@ def census_data(county, df_census):
     df_county.loc[df_county['orig_name'].str.contains(r'\(Stadt\)'), 'orig_name'].str.split().str[-1]
     df_county.loc[df_county['orig_name'].str.contains('Schöppingen'), 'name'] = \
     df_county.loc[df_county['orig_name'].str.contains('Schöppingen'), 'orig_name'].str.split().str[-1]
-    # sanct needs to be replaced by sankt
-    df_county.loc[df_county['orig_name'].str.contains('Sanct'), 'name'] = df_county.loc[df_county['orig_name'].str.contains('Sanct'), 'orig_name'].str.replace('Sanct', 'Sankt')
 
     # update alt_name for those with a dash in it (further alt-name cleaning done later)
     df_county.loc[(df_county["alt_name"].isnull()) & (df_county["name"].str.contains('-')), "alt_name"] = df_county.loc[(df_county["alt_name"].isnull()) & (df_county["name"].str.contains('-')), "name"].str.split('-').str[0]
@@ -453,6 +457,14 @@ def census_data(county, df_census):
     if county == 'beuthen':
         df_county.loc[df_county['name'].str.contains('Haiduck'), 'name'] = 'Bismarckhütte OSchles.'
         df_county.loc[df_county['name'].str.contains('Lagiewni'), 'name'] = 'Hohenlinde'
+
+    # adjustment for for Trier amalgamations:
+    if county == 'trier stadtkreis':
+        df_county.loc[df_county['name'].str.contains('Maar'), 'alt_name'] = 'Trier'
+        df_county.loc[df_county['name'].str.contains('Zurlauben'), 'alt_name'] = 'Trier'
+        df_county.loc[df_county['name'].str.contains('Paulin'), 'alt_name'] = 'Trier'
+        df_county.loc[df_county['name'].str.contains('Matthias'), 'alt_name'] = 'Trier'
+        df_county.loc[df_county['alt_name']=='Trier', 'amalg_flag'] = True
 
     ############ FINAL CLEAN BEFORE OUTPUT ############
 
@@ -983,7 +995,7 @@ def run_full_merge():
     for county in df_counties['orig_name']:
         count+=1
         print(count)
-        if county not in ['eiderstedt','fraustadt']:
+        if county not in ['kammin']:
             cont_flag = False
             continue
         # if cont_flag:
