@@ -394,6 +394,15 @@ def multiple_maps(map_name, county_gdf, county):
             county_gdf = county_gdf[county_gdf.index == 0]
     return county_gdf
 
+def amalgamate_unmatched(df_merged):
+    lat = df_merged.iloc[0,148]
+    lat = np.random.normal(lat, 0.02)
+    lng = df_merged.iloc[0,149]
+    lng = np.random.normal(lng, 0.02)
+    df_merged.loc[df_merged['geometry'].isnull()&(df_merged['geo_names']==False), 'lat'] = lat
+    df_merged.loc[df_merged['geometry'].isnull()&(df_merged['geo_names']==False), 'lng'] = lng
+    return df_merged
+
 def plot_county(county):
     # load saved data frame containing census file
     df_census = pd.read_pickle(wdir + "census_df_pickle")
@@ -417,11 +426,13 @@ def plot_county(county):
     map_names = extract_map_names(df_counties, prussia_map)
 
     # read in merged data
-    try:
-        county_merged_df = pd.read_excel(wdir+"Output/" + county + "/Merged_Data_" + county + '.xlsx')
-    except FileNotFoundError:
-        print('nope')
-        return
+    county_merged_df = pd.read_excel(wdir+"Output/" + county + "/Merged_Data_" + county + '.xlsx')
+
+    # amalagamation code for certain cities:
+    if county in ['trier stadtkreis', 'frankfurt am main', 'liegnitz stadtkreis']:
+        county_merged_df = amalgamate_unmatched(county_merged_df)
+
+    # drop geometry column
     county_merged_df.drop(columns=["geometry"], inplace=True)
 
     # we only want entries with long-lat data
@@ -493,7 +504,7 @@ def plot_county(county):
     #         gplt.polyplot(prussia_map, ax=bx)
     # plt.show()
 
-counties =  ['oberwesterwald']
+counties =  ['trier stadtkreis', 'frankfurt am main', 'liegnitz stadtkreis']
 
 for county in counties:
     plot_county(county)

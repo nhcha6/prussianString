@@ -522,6 +522,10 @@ def census_data(county, df_census):
         df_county = df_county.assign(name=county)
         if county == 'krefeld stadtkreis':
             df_county = df_county.assign(name='crefeld')
+        if county == 'kassel stadtkreis':
+            df_county = df_county.assign(name='cassel')
+        if county == 'koeln stadtkreis':
+            df_county = df_county.assign(name='cöln')
 
     # sanct needs to be replaced by sankt
     df_county.loc[df_county['orig_name'].str.contains('Sanct'), 'name'] = df_county.loc[df_county['orig_name'].str.contains('Sanct'), 'orig_name'].str.replace('Sanct', 'Sankt')
@@ -578,13 +582,6 @@ def census_data(county, df_census):
         df_county.loc[df_county['name'].str.contains('Haiduck'), 'name'] = 'Bismarckhütte OSchles.'
         df_county.loc[df_county['name'].str.contains('Lagiewni'), 'name'] = 'Hohenlinde'
 
-    # adjustment for for Trier amalgamations:
-    if county == 'trier stadtkreis':
-        df_county.loc[df_county['name'].str.contains('Maar'), 'alt_name'] = 'Trier'
-        df_county.loc[df_county['name'].str.contains('Zurlauben'), 'alt_name'] = 'Trier'
-        df_county.loc[df_county['name'].str.contains('Paulin'), 'alt_name'] = 'Trier'
-        df_county.loc[df_county['name'].str.contains('Matthias'), 'alt_name'] = 'Trier'
-        df_county.loc[df_county['alt_name']=='Trier', 'amalg_flag'] = True
 
     ############ FINAL CLEAN BEFORE OUTPUT ############
 
@@ -1144,7 +1141,7 @@ def run_full_merge():
     for county in df_counties['orig_name']:
         count+=1
         print(count)
-        if county not in ['posen landkreis']:
+        if county not in ['trier stadtkreis', 'frankfurt am main', 'liegnitz stadtkreis']:
             cont_flag = False
             continue
         # if cont_flag:
@@ -1180,6 +1177,7 @@ def run_full_merge():
         df_merged, df_lev_merged = lev_merge(df_gazetter_county, df_merged, df_unmatched_census)
 
         # final merge by searching against GeoNames data for matched entries lacking geocode data!
+        df_merged['geo_names'] = False
         df_merged = search_geonames(df_geonames_de, df_merged, county_poly_buffered)
         df_merged = search_geonames(df_geonames_pl, df_merged, county_poly_buffered)
 
