@@ -382,7 +382,7 @@ def multiple_maps(map_name, county_gdf, county):
             county_gdf = county_gdf[county_gdf.index == 0]
     return county_gdf
 
-def amalgamate_unmatched(df_merged, prussia_map):
+def amalgamate_unmatched(df_merged):
     lat = df_merged.iloc[0,148]
     lat = np.random.normal(lat, 0.02)
     lng = df_merged.iloc[0,149]
@@ -391,7 +391,7 @@ def amalgamate_unmatched(df_merged, prussia_map):
     df_merged.loc[df_merged['geometry'].isnull()&(df_merged['geo_names']==False), 'lng'] = lng
     return df_merged
 
-def plot_county(county, plot_headers, prussia_map):
+def plot_county(county, plot_headers, prussia_map, showFlag):
     # set seed so that random numbers generate identically each time
     np.random.seed(1)
 
@@ -463,9 +463,10 @@ def plot_county(county, plot_headers, prussia_map):
     print(f'''There are {within_no} locations within the county''')
 
     #plot voronoi
-    for header in plot_headers:
-        ax = gplt.voronoi(county_merged_gdf, hue=header, clip=county_gdf.simplify(0.001), legend = True)
-        ax.set_title(county + ' - ' + header)
+    if showFlag and county_merged_gdf.shape[0] != 1:
+        for header in plot_headers:
+            ax = gplt.voronoi(county_merged_gdf, hue=header, clip=county_gdf.simplify(0.001), legend = True)
+            ax.set_title(county + ' - ' + header)
 
     return county_gdf, county_merged_gdf
 
@@ -476,8 +477,20 @@ def run_maps():
     prussia_map = prussia_map.to_crs(epsg=4326)
     flag = False
 
-    for county in COUNTIES:
-        county_gdf, county_merged_gdf = plot_county(county, PLOT_HEADERS, prussia_map)
+    # case where all counties are wanted
+    if COUNTIES == 'all':
+        showFlag = False
+        # read in merged data
+        merge_details = pd.read_excel("Merged_Data/MergeDetails.xlsx")
+        counties = []
+        for county in merge_details['county']:
+            counties.append(county)
+    else:
+        counties = COUNTIES
+        showFlag = True
+
+    for county in counties:
+        county_gdf, county_merged_gdf = plot_county(county, PLOT_HEADERS, prussia_map, showFlag)
         if flag:
             gdf_total = pd.concat([gdf_total, county_gdf], ignore_index=True)
             gdf_merged_total = pd.concat([gdf_merged_total, county_merged_gdf], ignore_index=True)
