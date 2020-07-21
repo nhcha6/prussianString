@@ -438,11 +438,11 @@ def plot_county(county, plot_headers, prussia_map, showFlag):
     county_merged_df['lat'] = np.random.normal(county_merged_df['lat'],0.01)
     county_merged_df['lng'] = np.random.normal(county_merged_df['lng'],0.01)
 
-    data_headers = ['locname','type','pop_male', 'pop_female', 'pop_tot','protestant','catholic','other_christ', 'jew', 'other_relig', 'age_under_ten', 'literate', 'school_noinfo', 'illiterate']
+    data_headers = ['locname','type','pop_male', 'pop_female', 'pop_tot','protestant','catholic','other_christ', 'jew', 'other_relig', 'age_under_ten', 'literate', 'school_noinfo', 'illiterate', 'Kr']
 
     # convert all data to proportion of population
     for data in data_headers:
-        if data in ['pop_tot', 'type', 'locname']:
+        if data in ['pop_tot', 'type', 'locname', 'Kr']:
             continue
         county_merged_df[data] = county_merged_df[data]/county_merged_df['pop_tot']
     # add child to mother ratio:
@@ -465,7 +465,9 @@ def plot_county(county, plot_headers, prussia_map, showFlag):
     #plot voronoi
     if showFlag and county_merged_gdf.shape[0] != 1:
         for header in plot_headers:
-            ax = gplt.voronoi(county_merged_gdf, hue=header, clip=county_gdf.simplify(0.001), legend = True)
+            ax = gplt.voronoi(county_merged_gdf, hue=header, clip=county_gdf.simplify(0.001), legend = True, zorder=1)
+            gplt.pointplot(county_merged_gdf[county_merged_gdf['Kr']=="Fraustadt"], ax=ax, zorder=2)
+            gplt.polyplot(county_gdf, ax=ax)
             ax.set_title(county + ' - ' + header)
 
     return county_gdf, county_merged_gdf
