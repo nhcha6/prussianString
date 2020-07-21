@@ -460,9 +460,9 @@ def plot_county(county):
     print(f'''There are {loc_no} locations after duplicates are dropped''')
 
     # drop those outside buffered poly
-    county_merged_gdf = county_merged_gdf[county_merged_gdf.within(county_poly_buffered)]
-    within_no = county_merged_gdf.shape[0]
-    print(f'''There are {within_no} locations within the county''')
+    # county_merged_gdf = county_merged_gdf[county_merged_gdf.within(county_poly_buffered)]
+    # within_no = county_merged_gdf.shape[0]
+    # print(f'''There are {within_no} locations within the county''')
 
     #plot voronoi
     # ax = gplt.voronoi(county_merged_gdf, clip=county_gdf.simplify(0.001))
@@ -493,7 +493,7 @@ def plot_county(county):
     #         gplt.polyplot(prussia_map, ax=bx)
     # plt.show()
 
-counties =  ['duesseldorf stadtkreis', 'duesseldorf landkreis', 'krefeld stadtkreis', 'krefeld landkreis']
+counties =  ['oberwesterwald']
 
 for county in counties:
     plot_county(county)

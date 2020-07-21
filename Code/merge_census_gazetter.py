@@ -189,7 +189,7 @@ def gazetter_data(county_names, df, map_names, prussia_map):
         print(county_names)
 
     # find gazetter entries from map:
-    df_map_county = gazetter_data_map(df, map_names, prussia_map, county_names[0])
+    df_map_county, county_poly_buffered = gazetter_data_map(df, map_names, prussia_map, county_names[0])
     df.drop(columns=["geometry"], inplace=True)
 
     # concatenate that too:
@@ -276,7 +276,7 @@ def gazetter_data(county_names, df, map_names, prussia_map):
 
     #print(df_county[['merge_name', 'base_merge_name', 'base_merge_name_alt']])
 
-    return df_county
+    return df_county, county_poly_buffered
 
 """ ---------------------------EXTRACT GAZETTER ENTRIES WHICH FALL INSIDE MAPPED REGION-------------------------"""
 
@@ -486,7 +486,7 @@ def gazetter_data_map(df_gazetter, map_names, prussia_map, county):
         else:
             df_gazetter_map_county = pd.concat([df_gazetter_map_county, df_gazetter.reindex(index_in_county)], ignore_index=True, sort=False)
 
-    return df_gazetter_map_county
+    return df_gazetter_map_county, county_poly_buffered
 
 """ ----------------------------LOAD CLEANED CENSUS DATA AND APPLY STRING CLEANING -----------------------------------"""
 def census_data(county, df_census):
@@ -1009,6 +1009,35 @@ def lev_merge(df_county_gaz, df_merge, unmatched_census_df):
 
     return df_merge, df_lev_merge
 
+"""----------------------------------- FINAL SEARCH AGAINST GEONAMES DATABASE --------------------------------------"""
+
+def search_geonames(df_geonames, county_merged, county_poly_buffered):
+    merged_no_loc = county_merged.loc[county_merged['name_gazetter'].notnull() & (county_merged['lat'] == 0)]
+
+    for name_gazetter in merged_no_loc['name_gazetter']:
+
+        # extract geonames which match
+        geonames_slice = df_geonames[(df_geonames['name']==name_gazetter)|(df_geonames['asciiname']==name_gazetter)|(df_geonames['alternatenames']==name_gazetter)]
+
+        for i in range(geonames_slice.shape[0]):
+            merged_no_loc.loc[merged_no_loc['name_gazetter'] == name_gazetter, 'lat'] = geonames_slice.iloc[i, 4]
+            merged_no_loc.loc[merged_no_loc['name_gazetter'] == name_gazetter, 'lng'] = geonames_slice.iloc[i, 5]
+
+            #print(merged_no_loc.loc[merged_no_loc['name_gazetter']==name_gazetter, ['name_gazetter', 'lat', 'lng']])
+
+            gdf_loc_de = gpd.GeoDataFrame(merged_no_loc[merged_no_loc['name_gazetter'] == name_gazetter], geometry=gpd.points_from_xy(merged_no_loc[merged_no_loc['name_gazetter'] == name_gazetter].lng, merged_no_loc[merged_no_loc['name_gazetter'] == name_gazetter].lat))
+            within = gdf_loc_de[gdf_loc_de.within(county_poly_buffered)]
+
+            if within.shape[0]>0:
+                county_merged.loc[county_merged['name_gazetter']==name_gazetter, 'lat'] = geonames_slice.iloc[i, 4]
+                county_merged.loc[county_merged['name_gazetter']==name_gazetter, 'lng'] = geonames_slice.iloc[i, 5]
+                county_merged.loc[county_merged['name_gazetter']==name_gazetter, 'geo_names'] = True
+                break
+
+    return county_merged
+
+"""----------------------------------- WRITE DATA AND STATS TO FILE --------------------------------------"""
+
 def write_merged_data(df_merged, df_lev_merged, county):
     # prepare for total output write to file
     df_merged.drop(columns=["_merge"], inplace=True)
@@ -1031,7 +1060,7 @@ def qual_stat(exact_match_perc, df_merge_nodups, county, levenshtein_matches):
     match_perc = 100 * (df_merge_nodups.shape[0] - df_merge_nodups[df_merge_nodups['id'].isnull()].shape[0]) / \
                  df_merge_nodups.shape[0]
     print(f'''\n{match_perc:.2f}% of locations were matched when levenshtein distance was considered''')
-    loc_perc = 100 * (df_merge_nodups[df_merge_nodups['geometry'].notnull()].shape[0])/df_merge_nodups.shape[0]
+    loc_perc = 100 * (df_merge_nodups[df_merge_nodups['geometry'].notnull()|df_merge_nodups['geo_names']].shape[0])/df_merge_nodups.shape[0]
     print(f'''\n{loc_perc:.2f}% of locations were matched to geocode data''')
     round1_perc = 100 * df_merge_nodups[df_merge_nodups['merge_round'] == 1].shape[0] / df_merge_nodups.shape[0]
     print(f'''\n{round1_perc:.2f}% of locations were matched by classification and the exact name''')
@@ -1050,7 +1079,6 @@ def qual_stat(exact_match_perc, df_merge_nodups, county, levenshtein_matches):
 
     # if county has never been run, add new entry
     if df_merge_details[df_merge_details['county'] == county].empty:
-        new_county = df_merge_details.loc[0]
         new_county = new_county.replace(new_county['county'], county)
         df_merge_details = df_merge_details.append(new_county)
 
@@ -1069,6 +1097,8 @@ def qual_stat(exact_match_perc, df_merge_nodups, county, levenshtein_matches):
     df_merge_details.loc[df_merge_details['county'] == county, 'lev_typo'] = lev_typo
 
     df_merge_details.to_excel(os.path.join(WORKING_DIRECTORY, 'Output/', 'MergeDetails.xlsx'), index=False)
+
+"""----------------------------------- FUNCTION INITIAITES ENTIRE CODE  --------------------------------------"""
 
 def run_full_merge():
     # load saved data frame containing census file
@@ -1092,24 +1122,21 @@ def run_full_merge():
     # repeat this as slight changes were made in
     df_counties = extract_county_names(df_census)
 
-    # load in json file of (combinded) Gazetter entries
-    # commented out as saving of df means it need only run once
-    # file_path = os.path.join(wdir, 'Matching', 'json_merge.json')
-    # with open(file_path, 'r', encoding="utf8") as json_file:
-    #     data = json.load(json_file)
-    #     df = json_normalize(data)
-    #     print(f'The number of entries in Meyer Gazetter is: {df.shape[0]}')
-    # # save df to file so that we do not need to load json file again.
-    # df.to_pickle(wdir+"df_pickle")
-
     # load saved data frame
     df_gazetter = pd.read_pickle(WORKING_DIRECTORY + "df_pickle")
     print(f'The number of entries in Meyer Gazetter is: {df_gazetter.shape[0]}')
 
-    # figure out which counties to run
-    # load merge data
-    df_merge_data = pd.read_excel(os.path.join(WORKING_DIRECTORY, 'Output', 'MergeDetails.xlsx'))
-    #df_bad_match = df_merge_data[df_merge_data['match_perc'] < 85]
+    # load in GeoNames dataframe
+    df_geonames_de = pd.read_csv(WORKING_DIRECTORY + 'GeoNames/DE/DE.txt', sep="\t", header=None, low_memory=False)
+    df_geonames_de.columns = ["geonameid", "name", 'asciiname', "alternatenames", "latitude", "longitude",
+                              "feature class", "feature code", "country code ", 'cc2', 'admin1 code', 'admin2 code',
+                              'admin3 code', 'admin4 code', 'population', 'elevation', 'dem', 'timezone',
+                              'modification date']
+    df_geonames_pl = pd.read_csv(WORKING_DIRECTORY + 'GeoNames/PL/PL.txt', sep="\t", header=None, low_memory=False)
+    df_geonames_pl.columns = ["geonameid", "name", 'asciiname', "alternatenames", "latitude", "longitude",
+                              "feature class", "feature code", "country code ", 'cc2', 'admin1 code', 'admin2 code',
+                              'admin3 code', 'admin4 code', 'population', 'elevation', 'dem', 'timezone',
+                              'modification date']
 
     # build up list of possible county names to be searched against gazetter.
     cont_flag = True
@@ -1117,9 +1144,9 @@ def run_full_merge():
     for county in df_counties['orig_name']:
         count+=1
         print(count)
-        # if county not in ['kassel landkreis', 'kassel stadtkreis']:
-        #     cont_flag = False
-        #     continue
+        if county not in ['posen landkreis']:
+            cont_flag = False
+            continue
         # if cont_flag:
         #     continue
         current_county = df_counties.loc[df_counties['orig_name'] == county]
@@ -1138,7 +1165,7 @@ def run_full_merge():
         county = current_county_names[0]
 
         # gather and clean gazetter entires
-        df_gazetter_county = gazetter_data(current_county_names,df_gazetter, map_names[county], prussia_map)
+        df_gazetter_county, county_poly_buffered = gazetter_data(current_county_names,df_gazetter, map_names[county], prussia_map)
 
         # gather and clean census
         df_census_county = census_data(county, df_census)
@@ -1151,6 +1178,10 @@ def run_full_merge():
 
         # merge based on levenshtein distance
         df_merged, df_lev_merged = lev_merge(df_gazetter_county, df_merged, df_unmatched_census)
+
+        # final merge by searching against GeoNames data for matched entries lacking geocode data!
+        df_merged = search_geonames(df_geonames_de, df_merged, county_poly_buffered)
+        df_merged = search_geonames(df_geonames_pl, df_merged, county_poly_buffered)
 
         # write to file
         write_merged_data(df_merged, df_lev_merged, county)
