@@ -5,9 +5,7 @@ import geoplot as gplt
 import matplotlib.pyplot as plt
 import pandas as pd
 from tabulate import tabulate
-
-# set working directory path as location of data
-wdir = '/Users/nicolaschapman/Documents/PrussianStringMatching/Data/'
+from map_details import *
 
 def merge_STATA(master, using, how='outer', on=None, left_on=None, right_on=None, indicator=True,
                 suffixes=('_master','_using'), drop=None, keep=None, drop_merge=False):
@@ -138,16 +136,6 @@ def extract_map_names(df_counties_census, prussia_map):
     county_map_name['hagen'] = set(['HAGEN'])
     county_map_name['ohlau'] = set(['OHLAU'])
     county_map_name['schildberg'] = set(['SCHILDBERG'])
-
-
-    print('unmatched map')
-    for county in prussia_map["NAME"]:
-        flag = True
-        for maps in county_map_name.values():
-            if county in maps:
-                flag = False
-        if flag:
-            print(county)
 
     return county_map_name
 
@@ -394,7 +382,7 @@ def multiple_maps(map_name, county_gdf, county):
             county_gdf = county_gdf[county_gdf.index == 0]
     return county_gdf
 
-def amalgamate_unmatched(df_merged):
+def amalgamate_unmatched(df_merged, prussia_map):
     lat = df_merged.iloc[0,148]
     lat = np.random.normal(lat, 0.02)
     lng = df_merged.iloc[0,149]
@@ -403,12 +391,12 @@ def amalgamate_unmatched(df_merged):
     df_merged.loc[df_merged['geometry'].isnull()&(df_merged['geo_names']==False), 'lng'] = lng
     return df_merged
 
-def plot_county(county):
+def plot_county(county, plot_headers, prussia_map):
     # set seed so that random numbers generate identically each time
     np.random.seed(1)
 
     # load saved data frame containing census file
-    df_census = pd.read_pickle(wdir + "census_df_pickle")
+    df_census = pd.read_pickle("census_df_pickle")
 
     # account for two different rotenburgs:
     df_census.loc[(df_census['county']=='rotenburg')&(df_census['regbez']=='kassel'),'county'] = 'rotenburg kassel'
@@ -417,11 +405,6 @@ def plot_county(county):
     census_no = df_census[df_census['county']==county].shape[0]
     print(f'''There are {census_no} entries in the census''')
 
-    # read in map of prussia
-    prussia_map = gpd.read_file(wdir+"PrussianCensus1871/GIS/1871_county_shapefile-new.shp")
-    # convert to longitude and latitude for printing
-    prussia_map = prussia_map.to_crs(epsg=4326)
-
     # extract county name data frame from census
     df_counties = extract_county_names(df_census)
 
@@ -429,7 +412,7 @@ def plot_county(county):
     map_names = extract_map_names(df_counties, prussia_map)
 
     # read in merged data
-    county_merged_df = pd.read_excel(wdir+"Output/" + county + "/Merged_Data_" + county + '.xlsx')
+    county_merged_df = pd.read_excel("Merged_Data/" + county + "/Merged_Data_" + county + '.xlsx')
 
     # amalagamation code for certain cities:
     if county in ['trier stadtkreis', 'frankfurt am main', 'liegnitz stadtkreis']:
@@ -480,39 +463,38 @@ def plot_county(county):
     print(f'''There are {within_no} locations within the county''')
 
     #plot voronoi
-    ax = gplt.voronoi(county_merged_gdf, clip=county_gdf.simplify(0.001))
-    gplt.pointplot(county_merged_gdf, ax=ax)
-    gplt.voronoi(county_merged_gdf, hue='protestant', clip=county_gdf.simplify(0.001), legend = True)
-    gplt.voronoi(county_merged_gdf, hue='literate', clip=county_gdf.simplify(0.001), legend = True)
+    for header in plot_headers:
+        ax = gplt.voronoi(county_merged_gdf, hue=header, clip=county_gdf.simplify(0.001), legend = True)
+        ax.set_title(county + ' - ' + header)
+
+    return county_gdf, county_merged_gdf
+
+def run_maps():
+    # read in map of prussia
+    prussia_map = gpd.read_file("GIS/1871_county_shapefile-new.shp")
+    # convert to longitude and latitude for printing
+    prussia_map = prussia_map.to_crs(epsg=4326)
+    flag = False
+
+    for county in COUNTIES:
+        county_gdf, county_merged_gdf = plot_county(county, PLOT_HEADERS, prussia_map)
+        if flag:
+            gdf_total = pd.concat([gdf_total, county_gdf], ignore_index=True)
+            gdf_merged_total = pd.concat([gdf_merged_total, county_merged_gdf], ignore_index=True)
+        else:
+            flag = True
+            gdf_total = county_gdf
+            gdf_merged_total = county_merged_gdf
+
+    for header in PLOT_HEADERS:
+        ax = gplt.voronoi(gdf_merged_total, hue=header, clip=gdf_total.simplify(0.001), legend=True)
+        gplt.polyplot(prussia_map, ax=ax)
+        ax.set_title('All Counties - ' + header)
     plt.show()
 
-    # plot points, region, buffered region and map.
-    # ax = gplt.polyplot(county_gdf.buffer(0.05))
-    # gplt.pointplot(county_merged_gdf, ax=ax)
-    # gplt.polyplot(county_gdf, facecolor='red',ax=ax)
-    # gplt.polyplot(prussia_map, ax=ax)
-    # plt.show()
+run_maps()
 
-    # count = 0
-    # for map in ['HAIGERLOCH', 'HECHINGEN', 'SIGMARINGEN', 'GAMMERTINGEN']:
-    # #for map in prussia_map["NAME"]:
-    #     count+=1
-    #     county_gdf = prussia_map[prussia_map['NAME'] == map]
-    #     county_gdf.index = range(0, county_gdf.shape[0])
-    #     county_poly_buffered = county_gdf.buffer(0.05)[0]
-    #     # drop those outside buffered poly
-    #     if county_merged_gdf[county_merged_gdf.within(county_poly_buffered)].shape[0]>=0:
-    #         print(map)
-    #         print(county_merged_gdf[county_merged_gdf.within(county_poly_buffered)].shape[0])
-    #         bx = gplt.polyplot(county_gdf, facecolor='red')
-    #         gplt.polyplot(prussia_map, ax=bx)
-    # plt.show()
 
-counties =  ['schroda']
-
-for county in counties:
-
-    plot_county(county)
 
 
 
