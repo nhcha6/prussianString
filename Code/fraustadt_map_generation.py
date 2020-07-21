@@ -404,6 +404,9 @@ def amalgamate_unmatched(df_merged):
     return df_merged
 
 def plot_county(county):
+    # set seed so that random numbers generate identically each time
+    np.random.seed(1)
+
     # load saved data frame containing census file
     df_census = pd.read_pickle(wdir + "census_df_pickle")
 
@@ -471,23 +474,23 @@ def plot_county(county):
     print(f'''There are {loc_no} locations after duplicates are dropped''')
 
     # drop those outside buffered poly
-    # county_merged_gdf = county_merged_gdf[county_merged_gdf.within(county_poly_buffered)]
-    # within_no = county_merged_gdf.shape[0]
-    # print(f'''There are {within_no} locations within the county''')
+    county_merged_gdf = county_merged_gdf[county_merged_gdf.within(county_poly_buffered)]
+    within_no = county_merged_gdf.shape[0]
+    print(f'''There are {within_no} locations within the county''')
 
     #plot voronoi
-    # ax = gplt.voronoi(county_merged_gdf, clip=county_gdf.simplify(0.001))
-    # gplt.pointplot(county_merged_gdf, ax=ax)
-    # gplt.voronoi(county_merged_gdf, hue='protestant', clip=county_gdf.simplify(0.001), legend = True)
-    # gplt.voronoi(county_merged_gdf, hue='literate', clip=county_gdf.simplify(0.001), legend = True)
-    # plt.show()
+    ax = gplt.voronoi(county_merged_gdf, clip=county_gdf.simplify(0.001))
+    gplt.pointplot(county_merged_gdf, ax=ax)
+    gplt.voronoi(county_merged_gdf, hue='protestant', clip=county_gdf.simplify(0.001), legend = True)
+    gplt.voronoi(county_merged_gdf, hue='literate', clip=county_gdf.simplify(0.001), legend = True)
+    plt.show()
 
     # plot points, region, buffered region and map.
-    ax = gplt.polyplot(county_gdf.buffer(0.05))
-    gplt.pointplot(county_merged_gdf, ax=ax)
-    gplt.polyplot(county_gdf, facecolor='red',ax=ax)
-    gplt.polyplot(prussia_map, ax=ax)
-    plt.show()
+    # ax = gplt.polyplot(county_gdf.buffer(0.05))
+    # gplt.pointplot(county_merged_gdf, ax=ax)
+    # gplt.polyplot(county_gdf, facecolor='red',ax=ax)
+    # gplt.polyplot(prussia_map, ax=ax)
+    # plt.show()
 
     # count = 0
     # for map in ['HAIGERLOCH', 'HECHINGEN', 'SIGMARINGEN', 'GAMMERTINGEN']:
@@ -504,7 +507,7 @@ def plot_county(county):
     #         gplt.polyplot(prussia_map, ax=bx)
     # plt.show()
 
-counties =  ['trier stadtkreis', 'frankfurt am main', 'liegnitz stadtkreis']
+counties =  ['schroda']
 
 for county in counties:
     plot_county(county)

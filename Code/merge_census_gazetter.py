@@ -1135,15 +1135,19 @@ def run_full_merge():
                               'admin3 code', 'admin4 code', 'population', 'elevation', 'dem', 'timezone',
                               'modification date']
 
+    # import merge stats to extract poor perfomring counties:
+    df_stats = pd.read_excel(os.path.join(WORKING_DIRECTORY, 'Output/MergeDetails.xlsx'))
+    df_stats = df_stats[df_stats['loc_perc']<80]
+
     # build up list of possible county names to be searched against gazetter.
     cont_flag = True
     count = 0
-    for county in df_counties['orig_name']:
+    for county in df_stats['county']:
         count+=1
         print(count)
-        if county not in ['trier stadtkreis', 'frankfurt am main', 'liegnitz stadtkreis']:
-            cont_flag = False
-            continue
+        # if county not in ['trier stadtkreis', 'frankfurt am main', 'liegnitz stadtkreis']:
+        #     cont_flag = False
+        #     continue
         # if cont_flag:
         #     continue
         current_county = df_counties.loc[df_counties['orig_name'] == county]
