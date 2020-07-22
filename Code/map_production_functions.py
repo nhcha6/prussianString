@@ -392,25 +392,9 @@ def amalgamate_unmatched(df_merged):
     df_merged.loc[df_merged['geometry'].isnull()&(df_merged['geo_names']==False), 'lng'] = lng
     return df_merged
 
-def plot_county(county, plot_headers, prussia_map, showFlag):
+def plot_county(county, plot_headers, prussia_map, showFlag, map_names):
     # set seed so that random numbers generate identically each time
     np.random.seed(1)
-
-    # load saved data frame containing census file
-    df_census = pd.read_pickle("census_df_pickle")
-
-    # account for two different rotenburgs:
-    df_census.loc[(df_census['county']=='rotenburg')&(df_census['regbez']=='kassel'),'county'] = 'rotenburg kassel'
-    df_census.loc[(df_census['county']=='rotenburg')&(df_census['regbez']=='stade'),'county'] = 'rotenburg stade'
-
-    census_no = df_census[df_census['county']==county].shape[0]
-    print(f'''There are {census_no} entries in the census''')
-
-    # extract county name data frame from census
-    df_counties = extract_county_names(df_census)
-
-    # find county name from map:
-    map_names = extract_map_names(df_counties, prussia_map)
 
     # read in merged data
     county_merged_df = pd.read_excel("Merged_Data/" + county + "/Merged_Data_" + county + '.xlsx')
@@ -421,9 +405,6 @@ def plot_county(county, plot_headers, prussia_map, showFlag):
 
     # drop geometry column
     county_merged_df.drop(columns=["geometry"], inplace=True)
-
-    # we only want entries with long-lat data
-    county_merged_df = county_merged_df[(county_merged_df['lat']!=0)&(county_merged_df['lat'].notnull())]
 
     # extract county poly, need to loop not pop.
     map_name = map_names[county].pop()
@@ -453,15 +434,13 @@ def plot_county(county, plot_headers, prussia_map, showFlag):
     county_merged_gdf = gpd.GeoDataFrame(county_merged_df, geometry=gpd.points_from_xy(county_merged_df.lng,county_merged_df.lat))
     county_merged_gdf.crs = {'init': 'epsg:4326'}
 
+    # drop those outside buffered poly
+    county_merged_gdf = county_merged_gdf[county_merged_gdf.within(county_poly_buffered)]
+
     # if there are multiple matches, simply take the second for now. !! still need better duplicate distinction.
     county_merged_gdf = county_merged_gdf.drop_duplicates(subset=['loc_id'], keep='first')
     loc_no = county_merged_gdf.shape[0]
-    print(f'''There are {loc_no} locations after duplicates are dropped''')
-
-    # drop those outside buffered poly
-    county_merged_gdf = county_merged_gdf[county_merged_gdf.within(county_poly_buffered)]
-    within_no = county_merged_gdf.shape[0]
-    print(f'''There are {within_no} locations within the county''')
+    print(f'''There are {loc_no} locations within the county after duplicates are dropped''')
 
     # plot individual voronoi plots
     if showFlag and county_merged_gdf.shape[0] != 1:
@@ -499,6 +478,18 @@ def run_maps():
     prussia_map = prussia_map.to_crs(epsg=4326)
     flag = False
 
+    # load saved data frame containing census file
+    df_census = pd.read_pickle("census_df_pickle")
+    # account for two different rotenburgs:
+    df_census.loc[(df_census['county'] == 'rotenburg') & (df_census['regbez'] == 'kassel'), 'county'] = 'rotenburg kassel'
+    df_census.loc[(df_census['county'] == 'rotenburg') & (df_census['regbez'] == 'stade'), 'county'] = 'rotenburg stade'
+
+    # extract county name data frame from census
+    df_counties = extract_county_names(df_census)
+
+    # find county name from map:
+    map_names = extract_map_names(df_counties, prussia_map)
+
     # case where all counties are wanted
     if COUNTIES == 'all':
         showFlag = False
@@ -512,24 +503,38 @@ def run_maps():
         showFlag = True
 
     count = 0
+    county_gdf_list = []
+    merged_gdf_list = []
     for county in counties:
         count+=1
-        print(str(count) + ': ' + county)
-        # if count<0 or count>20:
-        #     continue
+        census_no = df_census[df_census['county'] == county].shape[0]
+        print(f'''\nThere are {census_no} entries in the census for {county}''')
+        if count<0 or count>30:
+            continue
 
-        county_gdf, county_merged_gdf = plot_county(county, PLOT_HEADERS, prussia_map, showFlag)
+        county_gdf, county_merged_gdf = plot_county(county, PLOT_HEADERS, prussia_map, showFlag, map_names)
+        merged_gdf_list.append(county_merged_gdf)
+        county_gdf_list.append(county_gdf)
+
+    flag = True
+    for merged_gdf in merged_gdf_list:
         if flag:
-            gdf_total = pd.concat([gdf_total, county_gdf], ignore_index=True)
-            gdf_merged_total = pd.concat([gdf_merged_total, county_merged_gdf], ignore_index=True)
+            concat_merged_gdf = merged_gdf
+            flag = False
         else:
-            flag = True
-            gdf_total = county_gdf
-            gdf_merged_total = county_merged_gdf
+            concat_merged_gdf = pd.concat([concat_merged_gdf, merged_gdf], ignore_index=True)
+
 
     for header in PLOT_HEADERS:
-        ax = gplt.voronoi(gdf_merged_total, hue=header, clip=gdf_total.simplify(0.001), legend=True, linewidth=0.5, zorder=1)
-        gplt.polyplot(prussia_map, linewidth = 0.8, ax=ax, zorder=2)
+        ax = gplt.polyplot(prussia_map, linewidth=0.8, zorder=2)
+        scheme = mc.EqualInterval(concat_merged_gdf[header],k=8)
+        for i in range(len(county_gdf_list)):
+            if merged_gdf_list[i].shape[0]>1:
+                gplt.voronoi(merged_gdf_list[i], hue=header, clip=county_gdf_list[i].simplify(0.001), legend=True, linewidth=0.5, zorder=1, ax=ax, scheme=scheme)
+            else:
+                merged_gdf_list[i]['geometry'] = county_gdf_list[i]['geometry'].iloc[0]
+                gplt.choropleth(merged_gdf_list[i], linewidth=0.5, zorder=1, ax=ax, hue = header, scheme=scheme)
+        gplt.polyplot(prussia_map, linewidth=0.8, ax=ax, zorder=2)
         ax.set_title('All Counties - ' + header)
     plt.show()
 
