@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from tabulate import tabulate
 from map_details import *
+import mapclassify as mc
 
 def merge_STATA(master, using, how='outer', on=None, left_on=None, right_on=None, indicator=True,
                 suffixes=('_master','_using'), drop=None, keep=None, drop_merge=False):
@@ -462,12 +463,32 @@ def plot_county(county, plot_headers, prussia_map, showFlag):
     within_no = county_merged_gdf.shape[0]
     print(f'''There are {within_no} locations within the county''')
 
-    #plot voronoi
+    # plot individual voronoi plots
     if showFlag and county_merged_gdf.shape[0] != 1:
         for header in plot_headers:
+            # plot voronoi
             ax = gplt.voronoi(county_merged_gdf, hue=header, clip=county_gdf.simplify(0.001), legend = True, zorder=1)
-            gplt.pointplot(county_merged_gdf[county_merged_gdf['Kr']=="Fraustadt"], ax=ax, zorder=2)
+
+            # add points over the top if county is selected
+            if KREIS != None:
+                # convert input KREIS to plotable data
+                legend = []
+                for i in range(len(KREIS)):
+                    county_merged_gdf.loc[county_merged_gdf['Kr'] == KREIS[i], 'kreis_hue'] = i
+                    if county_merged_gdf.loc[county_merged_gdf['Kr'] == KREIS[i]].shape[0] !=0:
+                        legend.append(KREIS[i])
+                # presuming some relevant counties were input, continue with plot.
+                if len(legend)!=0:
+                    # configure legends and plot
+                    scheme = mc.FisherJenks(county_merged_gdf.loc[county_merged_gdf['kreis_hue'].notnull(), 'kreis_hue'], k=len(legend))
+                    print(scheme)
+                    gplt.pointplot(county_merged_gdf[county_merged_gdf['kreis_hue'].notnull()], ax=ax, zorder=2, hue='kreis_hue', cmap = 'Reds', scheme=scheme, legend=True, legend_labels=legend)
+                    county_merged_gdf.drop(columns=["kreis_hue"], inplace=True)
+
+            # plot county as border to reframe the image.
             gplt.polyplot(county_gdf, ax=ax)
+
+            # set title
             ax.set_title(county + ' - ' + header)
 
     return county_gdf, county_merged_gdf
@@ -491,7 +512,13 @@ def run_maps():
         counties = COUNTIES
         showFlag = True
 
+    count = 0
     for county in counties:
+        count+=1
+        print(str(count) + ': ' + county)
+        # if count<0 or count>20:
+        #     continue
+
         county_gdf, county_merged_gdf = plot_county(county, PLOT_HEADERS, prussia_map, showFlag)
         if flag:
             gdf_total = pd.concat([gdf_total, county_gdf], ignore_index=True)

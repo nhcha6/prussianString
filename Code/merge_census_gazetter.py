@@ -1136,13 +1136,13 @@ def run_full_merge():
                               'modification date']
 
     # import merge stats to extract poor perfomring counties:
-    df_stats = pd.read_excel(os.path.join(WORKING_DIRECTORY, 'Output/MergeDetails.xlsx'))
-    df_stats = df_stats[df_stats['loc_perc']<80]
+    # df_stats = pd.read_excel(os.path.join(WORKING_DIRECTORY, 'Output/MergeDetails.xlsx'))
+    # df_stats = df_stats[df_stats['loc_perc']<80]
 
     # build up list of possible county names to be searched against gazetter.
     cont_flag = True
     count = 0
-    for county in df_stats['county']:
+    for county in df_counties['orig_name']:
         count+=1
         print(count)
         # if county not in ['trier stadtkreis', 'frankfurt am main', 'liegnitz stadtkreis']:
