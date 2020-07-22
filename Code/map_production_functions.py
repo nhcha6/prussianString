@@ -467,7 +467,7 @@ def plot_county(county, plot_headers, prussia_map, showFlag):
     if showFlag and county_merged_gdf.shape[0] != 1:
         for header in plot_headers:
             # plot voronoi
-            ax = gplt.voronoi(county_merged_gdf, hue=header, clip=county_gdf.simplify(0.001), legend = True, zorder=1)
+            ax = gplt.voronoi(county_merged_gdf, hue=header, clip=county_gdf.simplify(0.001), legend = True, zorder=1, linewidth=0.5)
 
             # add points over the top if county is selected
             if KREIS != None:
@@ -481,12 +481,11 @@ def plot_county(county, plot_headers, prussia_map, showFlag):
                 if len(legend)!=0:
                     # configure legends and plot
                     scheme = mc.FisherJenks(county_merged_gdf.loc[county_merged_gdf['kreis_hue'].notnull(), 'kreis_hue'], k=len(legend))
-                    print(scheme)
                     gplt.pointplot(county_merged_gdf[county_merged_gdf['kreis_hue'].notnull()], ax=ax, zorder=2, hue='kreis_hue', cmap = 'Reds', scheme=scheme, legend=True, legend_labels=legend)
                     county_merged_gdf.drop(columns=["kreis_hue"], inplace=True)
 
             # plot county as border to reframe the image.
-            gplt.polyplot(county_gdf, ax=ax)
+            gplt.polyplot(county_gdf, ax=ax,linewidth=0.8)
 
             # set title
             ax.set_title(county + ' - ' + header)
@@ -529,8 +528,8 @@ def run_maps():
             gdf_merged_total = county_merged_gdf
 
     for header in PLOT_HEADERS:
-        ax = gplt.voronoi(gdf_merged_total, hue=header, clip=gdf_total.simplify(0.001), legend=True)
-        gplt.polyplot(prussia_map, ax=ax)
+        ax = gplt.voronoi(gdf_merged_total, hue=header, clip=gdf_total.simplify(0.001), legend=True, linewidth=0.5, zorder=1)
+        gplt.polyplot(prussia_map, linewidth = 0.8, ax=ax, zorder=2)
         ax.set_title('All Counties - ' + header)
     plt.show()
 
