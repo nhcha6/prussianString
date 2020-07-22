@@ -391,8 +391,8 @@ def amalgamate_unmatched(df_merged):
     lat = np.random.normal(lat, 0.02)
     lng = df_merged.iloc[i,149]
     lng = np.random.normal(lng, 0.02)
-    df_merged.loc[df_merged['geometry'].isnull()&(df_merged['geo_names']==False)&(df_merged['lat'].notnull()), 'lat'] = lat
-    df_merged.loc[df_merged['geometry'].isnull()&(df_merged['geo_names']==False)&(df_merged['lat'].notnull()), 'lng'] = lng
+    df_merged.loc[df_merged['geometry'].isnull()&(df_merged['geo_names']==False), 'lat'] = lat
+    df_merged.loc[df_merged['geometry'].isnull()&(df_merged['geo_names']==False), 'lng'] = lng
     return df_merged
 
 def plot_county(county, plot_headers, prussia_map, showFlag, map_names):
@@ -438,7 +438,6 @@ def plot_county(county, plot_headers, prussia_map, showFlag, map_names):
     # merge data into a single entry for these counties where voronoi does not work
     if county in ['altona','magdeburg stadtkreis']:
         county_merged_gdf = county_merged_gdf[county_merged_gdf['loc_id']==1]
-        print(county_merged_gdf)
 
     data_headers = ['locname','type','pop_male', 'pop_female', 'pop_tot','protestant','catholic','other_christ', 'jew', 'other_relig', 'age_under_ten', 'literate', 'school_noinfo', 'illiterate', 'Kr']
     # convert all data to proportion of population
@@ -504,7 +503,7 @@ def run_maps():
         # read in merged data
         merge_details = pd.read_excel("Merged_Data/MergeDetails.xlsx")
         counties = []
-        for county in merge_details['county'].head(100):
+        for county in merge_details['county'].head:
             counties.append(county)
     else:
         counties = COUNTIES
