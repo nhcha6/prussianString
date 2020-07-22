@@ -503,7 +503,7 @@ def run_maps():
         # read in merged data
         merge_details = pd.read_excel("Merged_Data/MergeDetails.xlsx")
         counties = []
-        for county in merge_details['county'].head:
+        for county in merge_details['county']:
             counties.append(county)
     else:
         counties = COUNTIES
