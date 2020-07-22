@@ -384,12 +384,15 @@ def multiple_maps(map_name, county_gdf, county):
     return county_gdf
 
 def amalgamate_unmatched(df_merged):
-    lat = df_merged.iloc[0,148]
+    i = 0
+    if df_merged.iloc[i,148]==0:
+        i = 1
+    lat = df_merged.iloc[i, 148]
     lat = np.random.normal(lat, 0.02)
-    lng = df_merged.iloc[0,149]
+    lng = df_merged.iloc[i,149]
     lng = np.random.normal(lng, 0.02)
-    df_merged.loc[df_merged['geometry'].isnull()&(df_merged['geo_names']==False), 'lat'] = lat
-    df_merged.loc[df_merged['geometry'].isnull()&(df_merged['geo_names']==False), 'lng'] = lng
+    df_merged.loc[df_merged['geometry'].isnull()&(df_merged['geo_names']==False)&(df_merged['lat'].notnull()), 'lat'] = lat
+    df_merged.loc[df_merged['geometry'].isnull()&(df_merged['geo_names']==False)&(df_merged['lat'].notnull()), 'lng'] = lng
     return df_merged
 
 def plot_county(county, plot_headers, prussia_map, showFlag, map_names):
@@ -400,7 +403,7 @@ def plot_county(county, plot_headers, prussia_map, showFlag, map_names):
     county_merged_df = pd.read_excel("Merged_Data/" + county + "/Merged_Data_" + county + '.xlsx')
 
     # amalagamation code for certain cities:
-    if county in ['trier stadtkreis', 'frankfurt am main', 'liegnitz stadtkreis']:
+    if county in ['trier stadtkreis', 'frankfurt am main', 'liegnitz stadtkreis', 'Communion-Bergamts-Bezirk Goslar']:
         county_merged_df = amalgamate_unmatched(county_merged_df)
 
     # drop geometry column
@@ -420,16 +423,6 @@ def plot_county(county, plot_headers, prussia_map, showFlag, map_names):
     county_merged_df['lat'] = np.random.normal(county_merged_df['lat'],0.01)
     county_merged_df['lng'] = np.random.normal(county_merged_df['lng'],0.01)
 
-    data_headers = ['locname','type','pop_male', 'pop_female', 'pop_tot','protestant','catholic','other_christ', 'jew', 'other_relig', 'age_under_ten', 'literate', 'school_noinfo', 'illiterate', 'Kr']
-
-    # convert all data to proportion of population
-    for data in data_headers:
-        if data in ['pop_tot', 'type', 'locname', 'Kr']:
-            continue
-        county_merged_df[data] = county_merged_df[data]/county_merged_df['pop_tot']
-    # add child to mother ratio:
-    county_merged_df['child_per_woman'] = county_merged_df['age_under_ten']/county_merged_df['pop_female']
-
     # convert to geo data frame
     county_merged_gdf = gpd.GeoDataFrame(county_merged_df, geometry=gpd.points_from_xy(county_merged_df.lng,county_merged_df.lat))
     county_merged_gdf.crs = {'init': 'epsg:4326'}
@@ -441,6 +434,21 @@ def plot_county(county, plot_headers, prussia_map, showFlag, map_names):
     county_merged_gdf = county_merged_gdf.drop_duplicates(subset=['loc_id'], keep='first')
     loc_no = county_merged_gdf.shape[0]
     print(f'''There are {loc_no} locations within the county after duplicates are dropped''')
+
+    # merge data into a single entry for these counties where voronoi does not work
+    if county in ['altona','magdeburg stadtkreis']:
+        county_merged_gdf = county_merged_gdf[county_merged_gdf['loc_id']==1]
+        print(county_merged_gdf)
+
+    data_headers = ['locname','type','pop_male', 'pop_female', 'pop_tot','protestant','catholic','other_christ', 'jew', 'other_relig', 'age_under_ten', 'literate', 'school_noinfo', 'illiterate', 'Kr']
+    # convert all data to proportion of population
+    for data in data_headers:
+        if data in ['pop_tot', 'type', 'locname', 'Kr']:
+            continue
+        county_merged_gdf[data] = county_merged_gdf[data] / county_merged_gdf['pop_tot']
+        county_merged_gdf.loc[county_merged_gdf[data] > 1, data] = 1
+    # add child to mother ratio:
+    county_merged_gdf['child_per_woman'] = county_merged_gdf['age_under_ten'] / county_merged_gdf['pop_female']
 
     # plot individual voronoi plots
     if showFlag and county_merged_gdf.shape[0] != 1:
@@ -496,7 +504,7 @@ def run_maps():
         # read in merged data
         merge_details = pd.read_excel("Merged_Data/MergeDetails.xlsx")
         counties = []
-        for county in merge_details['county']:
+        for county in merge_details['county'].head(100):
             counties.append(county)
     else:
         counties = COUNTIES
@@ -506,11 +514,8 @@ def run_maps():
     county_gdf_list = []
     merged_gdf_list = []
     for county in counties:
-        count+=1
         census_no = df_census[df_census['county'] == county].shape[0]
         print(f'''\nThere are {census_no} entries in the census for {county}''')
-        if count<0 or count>30:
-            continue
 
         county_gdf, county_merged_gdf = plot_county(county, PLOT_HEADERS, prussia_map, showFlag, map_names)
         merged_gdf_list.append(county_merged_gdf)
@@ -527,13 +532,15 @@ def run_maps():
 
     for header in PLOT_HEADERS:
         ax = gplt.polyplot(prussia_map, linewidth=0.8, zorder=2)
-        scheme = mc.EqualInterval(concat_merged_gdf[header],k=8)
+        concat_merged_gdf = concat_merged_gdf[concat_merged_gdf[header].notnull()]
+        scheme = mc.HeadTailBreaks(concat_merged_gdf[header])
         for i in range(len(county_gdf_list)):
             if merged_gdf_list[i].shape[0]>1:
-                gplt.voronoi(merged_gdf_list[i], hue=header, clip=county_gdf_list[i].simplify(0.001), legend=True, linewidth=0.5, zorder=1, ax=ax, scheme=scheme)
+
+                gplt.voronoi(merged_gdf_list[i], hue=header, clip=county_gdf_list[i].simplify(0.001), legend=True, linewidth=0.2, zorder=1, ax=ax, scheme=scheme)
             else:
                 merged_gdf_list[i]['geometry'] = county_gdf_list[i]['geometry'].iloc[0]
-                gplt.choropleth(merged_gdf_list[i], linewidth=0.5, zorder=1, ax=ax, hue = header, scheme=scheme)
+                gplt.choropleth(merged_gdf_list[i], linewidth=0.2, zorder=1, ax=ax, hue = header, scheme=scheme, legend=True)
         gplt.polyplot(prussia_map, linewidth=0.8, ax=ax, zorder=2)
         ax.set_title('All Counties - ' + header)
     plt.show()
