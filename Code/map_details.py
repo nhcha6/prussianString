@@ -18,3 +18,8 @@ KREIS = ['Memel','Lissa']
 #BINS = [0, 0.2, 0.4, 0.6, 0.8, 1]
 # set to None if want to use the default.
 BINS = None
+
+# Histogram Data Options: ['pop_tot', 'protestant', 'catholic', 'other_christ', 'jew', 'other_relig', 'age_under_ten', 'literate', 'school_noinfo', 'illiterate']
+HISTOGRAM_DATA = ['pop_tot', 'protestant']#, 'catholic', 'other_christ', 'jew', 'other_relig', 'age_under_ten', 'literate', 'school_noinfo', 'illiterate']
+# Histogram Subset Options: ['all', 'total', 'stadt', 'manor', 'village']
+HISTOGRAM_SUBSET = ['all','manor', 'village']

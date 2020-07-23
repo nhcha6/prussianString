@@ -1,4 +1,5 @@
 # import libraries
+from map_details import *
 import os
 import pandas as pd
 from pandas.io.json import json_normalize
@@ -11,6 +12,7 @@ import geopandas as gpd
 import geoplot as gplt
 import matplotlib.pyplot as plt
 import scipy
+
 
 # set working directory path as location of data
 WORKING_DIRECTORY = '/Users/nicolaschapman/Documents/NicMergeData/'
@@ -115,15 +117,18 @@ def create_histograms():
     df_summary['plot_%'].plot.hist(grid=True, bins=20, rwidth=0.9,color='#607c8e')
     plt.title('Mapping Rate')
 
-    for header in DATA_HEADERS:
-        if header in ['type', 'locname', 'pop_male', 'pop_female', 'province_id']:
-            continue
+    for header in HISTOGRAM_DATA:
+        for subset in HISTOGRAM_SUBSET:
+            if subset == 'all':
+                df_histogram_missing = df_missing
+            else:
+                df_histogram_missing = df_missing[df_missing['subset']==subset]
 
-        t_stat_header = header + '_t_value'
+            t_stat_header = header + '_t_value'
 
-        plt.figure()
-        df_missing[t_stat_header].plot.hist(grid=True, bins=20, rwidth=0.9,color='#607c8e')
-        plt.title(t_stat_header)
+            plt.figure()
+            df_histogram_missing[t_stat_header].plot.hist(grid=True, bins=20, rwidth=0.9,color='#607c8e')
+            plt.title(t_stat_header+'_' + subset)
 
     plt.show()
 
