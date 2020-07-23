@@ -1145,7 +1145,7 @@ def amalgamate_unmatched(df_merged):
 
 def run_full_merge():
     # load saved data frame containing census file
-    df_census = pd.read_pickle(WORKING_DIRECTORY+"census_df_pickle")
+    df_census = pd.read_pickle(os.path.join(WORKING_DIRECTORY, "census_df_pickle"))
 
     # account for two different rotenburgs:
     df_census.loc[(df_census['county']=='rotenburg')&(df_census['regbez']=='kassel'),'county'] = 'rotenburg kassel'
@@ -1155,7 +1155,7 @@ def run_full_merge():
     df_counties = extract_county_names(df_census)
 
     # read in map of prussia
-    prussia_map = gpd.read_file(WORKING_DIRECTORY + "PrussianCensus1871/GIS/1871_county_shapefile-new.shp")
+    prussia_map = gpd.read_file(os.path.join(WORKING_DIRECTORY, "PrussianCensus1871/GIS/1871_county_shapefile-new.shp"))
     # convert to longitude and latitude for printing
     prussia_map = prussia_map.to_crs(epsg=4326)
 
@@ -1166,32 +1166,28 @@ def run_full_merge():
     df_counties = extract_county_names(df_census)
 
     # load saved data frame
-    df_gazetter = pd.read_pickle(WORKING_DIRECTORY + "df_pickle")
+    df_gazetter = pd.read_pickle(os.path.join(WORKING_DIRECTORY, "df_pickle"))
     print(f'The number of entries in Meyer Gazetter is: {df_gazetter.shape[0]}')
 
     # load in GeoNames dataframe
-    df_geonames_de = pd.read_csv(WORKING_DIRECTORY + 'GeoNames/DE/DE.txt', sep="\t", header=None, low_memory=False)
+    df_geonames_de = pd.read_csv(os.path.join(WORKING_DIRECTORY, 'GeoNames/DE/DE.txt'), sep="\t", header=None, low_memory=False)
     df_geonames_de.columns = ["geonameid", "name", 'asciiname', "alternatenames", "latitude", "longitude",
                               "feature class", "feature code", "country code ", 'cc2', 'admin1 code', 'admin2 code',
                               'admin3 code', 'admin4 code', 'population', 'elevation', 'dem', 'timezone',
                               'modification date']
-    df_geonames_pl = pd.read_csv(WORKING_DIRECTORY + 'GeoNames/PL/PL.txt', sep="\t", header=None, low_memory=False)
+    df_geonames_pl = pd.read_csv(os.path.join(WORKING_DIRECTORY, 'GeoNames/PL/PL.txt'), sep="\t", header=None, low_memory=False)
     df_geonames_pl.columns = ["geonameid", "name", 'asciiname', "alternatenames", "latitude", "longitude",
                               "feature class", "feature code", "country code ", 'cc2', 'admin1 code', 'admin2 code',
                               'admin3 code', 'admin4 code', 'population', 'elevation', 'dem', 'timezone',
                               'modification date']
 
     # build up list of possible county names to be searched against gazetter.
-    cont_flag = True
     count = 0
     for county in df_counties['orig_name']:
         count+=1
         print(count)
-        # if county not in ['fraustadt']:
-        #     cont_flag = False
-        #     continue
-        # if cont_flag:
-        #     continue
+        if county not in ['fraustadt']:
+            continue
         current_county = df_counties.loc[df_counties['orig_name'] == county]
         current_county=current_county.reset_index()
         current_county.drop(columns=["index"], inplace=True)
@@ -1239,8 +1235,6 @@ def run_full_merge():
     # update the census
     update_census(df_counties)
 
-# run merge
-#run_full_merge()
 
 
 

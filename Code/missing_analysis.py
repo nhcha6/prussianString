@@ -132,6 +132,3 @@ def create_histograms():
     plt.show()
 
 
-#create_missing_stats()
-
-#create_histograms()

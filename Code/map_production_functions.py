@@ -407,6 +407,8 @@ def plot_county(county, county_merged_df, plot_headers, prussia_map, map_names, 
 
     # extract county poly, need to loop not pop.
     map_name = map_names[county].pop()
+    # replace popped value
+    map_names[county].add(map_name)
     county_gdf = prussia_map[prussia_map['NAME']==map_name]
     county_gdf.index = range(0,county_gdf.shape[0])
 
@@ -493,13 +495,13 @@ def plot_county(county, county_merged_df, plot_headers, prussia_map, map_names, 
 
 def run_maps():
     # read in map of prussia
-    prussia_map = gpd.read_file(WORKING_DIRECTORY+"PrussianCensus1871/GIS/1871_county_shapefile-new.shp")
+    prussia_map = gpd.read_file(os.path.join(WORKING_DIRECTORY,"PrussianCensus1871",'GIS','1871_county_shapefile-new.shp'))
     # convert to longitude and latitude for printing
     prussia_map = prussia_map.to_crs(epsg=4326)
     flag = False
 
     # load saved data frame containing census file
-    df_census = pd.read_pickle(WORKING_DIRECTORY+ "census_df_pickle")
+    df_census = pd.read_pickle(os.path.join(WORKING_DIRECTORY, "census_df_pickle"))
     # account for two different rotenburgs:
     df_census.loc[(df_census['county'] == 'rotenburg') & (df_census['regbez'] == 'kassel'), 'county'] = 'rotenburg kassel'
     df_census.loc[(df_census['county'] == 'rotenburg') & (df_census['regbez'] == 'stade'), 'county'] = 'rotenburg stade'
@@ -571,7 +573,6 @@ def run_maps():
         ax.set_title('All Counties - ' + header)
     plt.show()
 
-#run_maps()
 
 
 
