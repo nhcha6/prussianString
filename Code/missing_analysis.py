@@ -14,7 +14,7 @@ import scipy
 
 pd.set_option("display.max_rows", None, "display.max_columns", None)
 
-DATA_HEADERS = ['locname', 'type', 'pop_male', 'pop_female', 'pop_tot', 'protestant', 'catholic', 'other_christ', 'jew',
+DATA_HEADERS = ['locname', 'province_id', 'type', 'pop_male', 'pop_female', 'pop_tot', 'protestant', 'catholic', 'other_christ', 'jew',
                 'other_relig', 'age_under_ten', 'literate', 'school_noinfo', 'illiterate']
 
 # set working directory path as location of data
@@ -26,7 +26,7 @@ def missing_at_random(county):
 
     # convert all data to proportion of population
     for data in DATA_HEADERS:
-        if data in ['pop_tot', 'type', 'locname']:
+        if data in ['pop_tot', 'type', 'locname','province_id']:
             continue
         county_merged_df[data] = county_merged_df[data] / county_merged_df['pop_tot']
         county_merged_df.loc[county_merged_df[data] > 1, data] = 1
@@ -55,9 +55,10 @@ def county_summary(county, county_merged_df, missing_data, within_data):
     num_missing = missing_data.shape[0]
     num_total = county_merged_df.shape[0]
     num_within = within_data.shape[0]
+    county_id = county_merged_df.iloc[0,1]
 
     # declare basic summary data
-    temp = {'name': [county], 'num_total': [num_total], 'num_missing': [num_missing], 'num_within': [num_within]}
+    temp = {'name': [county], 'county_id': [county_id], 'num_total': [num_total], 'num_missing': [num_missing], 'num_within': [num_within]}
     df_county_summary = pd.DataFrame(temp)
     df_county_summary['plot_%'] = 100*df_county_summary['num_within']/df_county_summary['num_total']
     try:
@@ -73,17 +74,17 @@ def county_summary(county, county_merged_df, missing_data, within_data):
     except ZeroDivisionError:
         df_county_summary['village_plot_%'] = 'NA'
 
-    df_missing_total = mean_comp(within_data, missing_data, 'total', county)
-    df_missing_stadt = mean_comp(within_data[within_data['class']=='stadt'], missing_data[missing_data['class']=='stadt'], 'stadt', county)
-    df_missing_manor = mean_comp(within_data[within_data['class']=='gutsbezirk'], missing_data[missing_data['class']=='gutsbezirk'], 'manor', county)
-    df_missing_village = mean_comp(within_data[within_data['class']=='landgemeinde'], missing_data[missing_data['class']=='landgemeinde'], 'village', county)
+    df_missing_total = mean_comp(within_data, missing_data, 'total', county, county_id)
+    df_missing_stadt = mean_comp(within_data[within_data['class']=='stadt'], missing_data[missing_data['class']=='stadt'], 'stadt', county, county_id)
+    df_missing_manor = mean_comp(within_data[within_data['class']=='gutsbezirk'], missing_data[missing_data['class']=='gutsbezirk'], 'manor', county, county_id)
+    df_missing_village = mean_comp(within_data[within_data['class']=='landgemeinde'], missing_data[missing_data['class']=='landgemeinde'], 'village', county, county_id)
 
     df_missing = pd.concat([df_missing_total, df_missing_stadt, df_missing_manor, df_missing_village], ignore_index=True)
 
     return df_missing, df_county_summary
 
-def mean_comp(within_data, missing_data, subset, county):
-    df_county_missing = pd.DataFrame({'name': [county], 'subset': subset})
+def mean_comp(within_data, missing_data, subset, county, county_id):
+    df_county_missing = pd.DataFrame({'name': [county], 'county_id': [county_id], 'subset': subset})
 
     for data in DATA_HEADERS:
         if data in ['type', 'locname', 'pop_male', 'pop_female']:
@@ -138,6 +139,6 @@ def create_histograms():
     plt.show()
 
 
-#run()
+run()
 
 create_histograms()
