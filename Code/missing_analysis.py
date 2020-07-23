@@ -76,7 +76,7 @@ def mean_comp(within_data, missing_data, subset, county, county_id):
     df_county_missing = pd.DataFrame({'name': [county], 'county_id': [county_id], 'subset': subset})
 
     for data in DATA_HEADERS:
-        if data in ['type', 'locname', 'pop_male', 'pop_female']:
+        if data in ['type', 'locname', 'pop_male', 'pop_female', 'province_id']:
             continue
         within_list = list(within_data[data])
         missing_list = list(missing_data[data])
@@ -95,7 +95,6 @@ def create_missing_stats():
     census_updated = pd.read_excel(os.path.join(WORKING_DIRECTORY, 'OutputSummary/', 'PrussianCensusUpdated.xlsx'))
     flag = True
     for county in merge_details['county']:
-    #for county in ['fraustadt', 'altona', 'memel']:
         print(county)
         df_county_missing, df_county_summary = missing_at_random(county, census_updated[census_updated['district']==county])
         if flag:

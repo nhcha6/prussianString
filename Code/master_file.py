@@ -9,7 +9,7 @@ from missing_analysis import *
 #run_full_merge()
 
 # run the statistical analysis of the missing data
-#create_missing_stats()
+create_missing_stats()
 
 # create histograms from the missing data
 create_histograms()
