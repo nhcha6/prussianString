@@ -21,8 +21,7 @@ DATA_HEADERS = ['locname', 'province_id', 'type', 'pop_male', 'pop_female', 'pop
 WORKING_DIRECTORY = '/Users/nicolaschapman/Documents/PrussianStringMatching/Data/'
 
 
-def missing_at_random(county):
-    county_merged_df = pd.read_excel(os.path.join(WORKING_DIRECTORY, 'Output/', county, 'Merged_Data_' + county + '.xlsx'))
+def missing_at_random(county, county_merged_df):
 
     # convert all data to proportion of population
     for data in DATA_HEADERS:
@@ -33,19 +32,8 @@ def missing_at_random(county):
     # add child to mother ratio:
     county_merged_df['child_per_woman'] = county_merged_df['age_under_ten'] / county_merged_df['pop_female']
 
-    # amalagamation code for certain cities:
-    if county in ['trier stadtkreis', 'frankfurt am main', 'liegnitz stadtkreis', 'Communion-Bergamts-Bezirk Goslar']:
-        county_merged_df.loc[county_merged_df['geometry'].isnull() & (county_merged_df['geo_names'] == False), 'geo_names'] = True
-
-    within_data = county_merged_df[county_merged_df['geometry'].notnull()|(county_merged_df['geo_names'])]
-
-    within_data = within_data.drop_duplicates(subset=['loc_id'], keep='first')
-
-    missing = ~county_merged_df.loc_id.isin(within_data.loc_id)
-    missing_data = county_merged_df[missing]
-    missing_data = missing_data.drop_duplicates(subset=['loc_id'], keep='first')
-
-    county_merged_df = county_merged_df.drop_duplicates(subset=['loc_id'], keep='first')
+    within_data = county_merged_df[county_merged_df['lat']!=0]
+    missing_data = county_merged_df[county_merged_df['lat']==0]
 
     df_missing, df_county_summary = county_summary(county, county_merged_df, missing_data, within_data)
 
@@ -100,13 +88,15 @@ def mean_comp(within_data, missing_data, subset, county, county_id):
 
     return df_county_missing
 
-def run():
+def create_missing_stats():
     # read in merged data
-    merge_details = pd.read_excel(os.path.join(WORKING_DIRECTORY, 'Output/', 'MergeDetails.xlsx'))
+    merge_details = pd.read_excel(os.path.join(WORKING_DIRECTORY, 'OutputSummary/', 'MergeDetails.xlsx'))
+    census_updated = pd.read_excel(os.path.join(WORKING_DIRECTORY, 'OutputSummary/', 'PrussianCensusUpdated.xlsx'))
     flag = True
     for county in merge_details['county']:
-    #for county in ['trier stadtkreis', 'frankfurt am main', 'liegnitz stadtkreis', 'Communion-Bergamts-Bezirk Goslar', 'altona', 'magdeburg stadtkreis']:
-        df_county_missing, df_county_summary = missing_at_random(county)
+    #for county in ['fraustadt', 'altona', 'memel']:
+        print(county)
+        df_county_missing, df_county_summary = missing_at_random(county, census_updated[census_updated['district']==county])
         if flag:
             df_missing = df_county_missing
             df_summary = df_county_summary
@@ -115,12 +105,12 @@ def run():
             df_missing = pd.concat([df_missing, df_county_missing], ignore_index=True)
             df_summary = pd.concat([df_summary, df_county_summary], ignore_index=True)
 
-    df_missing.to_excel(os.path.join(WORKING_DIRECTORY, 'Output','MissingAnalysis.xlsx'),index=False)
-    df_summary.to_excel(os.path.join(WORKING_DIRECTORY, 'Output','MappingSummary.xlsx'),index=False)
+    df_missing.to_excel(os.path.join(WORKING_DIRECTORY, 'OutputSummary','MissingAnalysis.xlsx'),index=False)
+    df_summary.to_excel(os.path.join(WORKING_DIRECTORY, 'OutputSummary','MappingSummary.xlsx'),index=False)
 
 def create_histograms():
-    df_missing = pd.read_excel(os.path.join(WORKING_DIRECTORY, 'Output', 'MissingAnalysis.xlsx'), index=False)
-    df_summary = pd.read_excel(os.path.join(WORKING_DIRECTORY, 'Output', 'MappingSummary.xlsx'), index=False)
+    df_missing = pd.read_excel(os.path.join(WORKING_DIRECTORY, 'OutputSummary', 'MissingAnalysis.xlsx'), index=False)
+    df_summary = pd.read_excel(os.path.join(WORKING_DIRECTORY, 'OutputSummary', 'MappingSummary.xlsx'), index=False)
 
     plt.figure()
     df_summary['plot_%'].plot.hist(grid=True, bins=20, rwidth=0.9,color='#607c8e')
@@ -139,6 +129,6 @@ def create_histograms():
     plt.show()
 
 
-run()
+create_missing_stats()
 
 create_histograms()

@@ -1101,9 +1101,6 @@ def update_census(df_counties):
     # create PrussianCensusMerged file
     flag = True
     for county in df_counties['orig_name']:
-        print(county)
-        if county not in ['trier stadtkreis', 'frankfurt am main', 'liegnitz stadtkreis','Communion-Bergamts-Bezirk Goslar']:
-            continue
         county_merged_df = pd.read_excel(os.path.join(WORKING_DIRECTORY, 'OutputCounty/', county, 'Merged_Data_' + county + '.xlsx'))
 
         # amalagamation code for certain cities:
@@ -1241,19 +1238,6 @@ def run_full_merge():
 
     # update the census
     update_census(df_counties)
-
-# # load saved data frame containing census file
-# df_census = pd.read_pickle(WORKING_DIRECTORY+"census_df_pickle")
-#
-# # account for two different rotenburgs:
-# df_census.loc[(df_census['county']=='rotenburg')&(df_census['regbez']=='kassel'),'county'] = 'rotenburg kassel'
-# df_census.loc[(df_census['county']=='rotenburg')&(df_census['regbez']=='stade'),'county'] = 'rotenburg stade'
-#
-# # extract county name data frame from census
-# df_counties = extract_county_names(df_census)
-
-# update_census(df_counties)
-
 
 # run merge
 run_full_merge()
