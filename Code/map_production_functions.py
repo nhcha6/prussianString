@@ -10,7 +10,7 @@ import mapclassify as mc
 import os
 
 # set working directory path as location of data
-WORKING_DIRECTORY = '/Users/nicolaschapman/Documents/PrussianStringMatching/Data/'
+WORKING_DIRECTORY = '/Users/nicolaschapman/Documents/NicMergeData/'
 
 pd.set_option("display.max_rows", None, "display.max_columns", None)
 
@@ -571,7 +571,7 @@ def run_maps():
         ax.set_title('All Counties - ' + header)
     plt.show()
 
-run_maps()
+#run_maps()
 
 
 

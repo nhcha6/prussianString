@@ -12,14 +12,13 @@ import geoplot as gplt
 import matplotlib.pyplot as plt
 import scipy
 
+# set working directory path as location of data
+WORKING_DIRECTORY = '/Users/nicolaschapman/Documents/NicMergeData/'
+
 pd.set_option("display.max_rows", None, "display.max_columns", None)
 
 DATA_HEADERS = ['locname', 'province_id', 'type', 'pop_male', 'pop_female', 'pop_tot', 'protestant', 'catholic', 'other_christ', 'jew',
                 'other_relig', 'age_under_ten', 'literate', 'school_noinfo', 'illiterate']
-
-# set working directory path as location of data
-WORKING_DIRECTORY = '/Users/nicolaschapman/Documents/PrussianStringMatching/Data/'
-
 
 def missing_at_random(county, county_merged_df):
 
@@ -129,6 +128,6 @@ def create_histograms():
     plt.show()
 
 
-create_missing_stats()
+#create_missing_stats()
 
-create_histograms()
+#create_histograms()

@@ -21,10 +21,10 @@ import geopandas as gpd
 import geoplot as gplt
 import matplotlib.pyplot as plt
 
-pd.set_option("display.max_rows", None, "display.max_columns", None)
-
 # set working directory path as location of data
-WORKING_DIRECTORY = '/Users/nicolaschapman/Documents/PrussianStringMatching/Data/'
+WORKING_DIRECTORY = '/Users/nicolaschapman/Documents/NicMergeData/'
+
+pd.set_option("display.max_rows", None, "display.max_columns", None)
 
 
 """ ------------------------------------ EXTRACT COUNTY NAMES FROM CENSUS -------------------------------------"""
@@ -1187,9 +1187,9 @@ def run_full_merge():
     for county in df_counties['orig_name']:
         count+=1
         print(count)
-        if county not in ['fraustadt']:
-            cont_flag = False
-            continue
+        # if county not in ['fraustadt']:
+        #     cont_flag = False
+        #     continue
         # if cont_flag:
         #     continue
         current_county = df_counties.loc[df_counties['orig_name'] == county]
@@ -1240,7 +1240,7 @@ def run_full_merge():
     update_census(df_counties)
 
 # run merge
-run_full_merge()
+#run_full_merge()
 
 
 
