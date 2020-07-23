@@ -7,5 +7,5 @@ COUNTIES =  ['fraustadt']
 PLOT_HEADERS = ['protestant', 'age_under_ten']
 
 # locations within these region (from the gazetter data) will be plotted on top of the voronoi for infividual counties
-KREIS = ['Fraustadt','Lissa']
-#KREIS = None
+#KREIS = ['Fraustadt','Lissa']
+KREIS = None

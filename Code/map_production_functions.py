@@ -7,6 +7,10 @@ import pandas as pd
 from tabulate import tabulate
 from map_details import *
 import mapclassify as mc
+import os
+
+# set working directory path as location of data
+WORKING_DIRECTORY = '/Users/nicolaschapman/Documents/PrussianStringMatching/Data/'
 
 def merge_STATA(master, using, how='outer', on=None, left_on=None, right_on=None, indicator=True,
                 suffixes=('_master','_using'), drop=None, keep=None, drop_merge=False):
@@ -395,19 +399,9 @@ def amalgamate_unmatched(df_merged):
     df_merged.loc[df_merged['geometry'].isnull()&(df_merged['geo_names']==False), 'lng'] = lng
     return df_merged
 
-def plot_county(county, plot_headers, prussia_map, showFlag, map_names):
+def plot_county(county, county_merged_df, plot_headers, prussia_map, showFlag, map_names):
     # set seed so that random numbers generate identically each time
     np.random.seed(1)
-
-    # read in merged data
-    county_merged_df = pd.read_excel("Merged_Data/" + county + "/Merged_Data_" + county + '.xlsx')
-
-    # amalagamation code for certain cities:
-    if county in ['trier stadtkreis', 'frankfurt am main', 'liegnitz stadtkreis', 'Communion-Bergamts-Bezirk Goslar']:
-        county_merged_df = amalgamate_unmatched(county_merged_df)
-
-    # drop geometry column
-    county_merged_df.drop(columns=["geometry"], inplace=True)
 
     # extract county poly, need to loop not pop.
     map_name = map_names[county].pop()
@@ -427,11 +421,10 @@ def plot_county(county, plot_headers, prussia_map, showFlag, map_names):
     county_merged_gdf = gpd.GeoDataFrame(county_merged_df, geometry=gpd.points_from_xy(county_merged_df.lng,county_merged_df.lat))
     county_merged_gdf.crs = {'init': 'epsg:4326'}
 
-    # drop those outside buffered poly
+    # drop those outside buffered poly: should have already been delt with, double check can't hurt!
     county_merged_gdf = county_merged_gdf[county_merged_gdf.within(county_poly_buffered)]
 
     # if there are multiple matches, simply take the second for now. !! still need better duplicate distinction.
-    county_merged_gdf = county_merged_gdf.drop_duplicates(subset=['loc_id'], keep='first')
     loc_no = county_merged_gdf.shape[0]
     print(f'''There are {loc_no} locations within the county after duplicates are dropped''')
 
@@ -480,13 +473,13 @@ def plot_county(county, plot_headers, prussia_map, showFlag, map_names):
 
 def run_maps():
     # read in map of prussia
-    prussia_map = gpd.read_file("GIS/1871_county_shapefile-new.shp")
+    prussia_map = gpd.read_file(WORKING_DIRECTORY+"PrussianCensus1871/GIS/1871_county_shapefile-new.shp")
     # convert to longitude and latitude for printing
     prussia_map = prussia_map.to_crs(epsg=4326)
     flag = False
 
     # load saved data frame containing census file
-    df_census = pd.read_pickle("census_df_pickle")
+    df_census = pd.read_pickle(WORKING_DIRECTORY+ "census_df_pickle")
     # account for two different rotenburgs:
     df_census.loc[(df_census['county'] == 'rotenburg') & (df_census['regbez'] == 'kassel'), 'county'] = 'rotenburg kassel'
     df_census.loc[(df_census['county'] == 'rotenburg') & (df_census['regbez'] == 'stade'), 'county'] = 'rotenburg stade'
@@ -497,11 +490,14 @@ def run_maps():
     # find county name from map:
     map_names = extract_map_names(df_counties, prussia_map)
 
+    # upload updated census details
+    df_census_updated = pd.read_excel(os.path.join(WORKING_DIRECTORY, 'OutputSummary/', 'PrussianCensusUpdated.xlsx'))
+
     # case where all counties are wanted
     if COUNTIES == 'all':
         showFlag = False
         # read in merged data
-        merge_details = pd.read_excel("Merged_Data/MergeDetails.xlsx")
+        merge_details = pd.read_excel(os.path.join(WORKING_DIRECTORY, 'OutputSummary/', 'MergeDetails.xlsx'))
         counties = []
         for county in merge_details['county']:
             counties.append(county)
@@ -509,14 +505,14 @@ def run_maps():
         counties = COUNTIES
         showFlag = True
 
-    count = 0
     county_gdf_list = []
     merged_gdf_list = []
     for county in counties:
+        df_county = df_census_updated[df_census_updated['district']==county]
         census_no = df_census[df_census['county'] == county].shape[0]
         print(f'''\nThere are {census_no} entries in the census for {county}''')
 
-        county_gdf, county_merged_gdf = plot_county(county, PLOT_HEADERS, prussia_map, showFlag, map_names)
+        county_gdf, county_merged_gdf = plot_county(county, df_county, PLOT_HEADERS, prussia_map, showFlag, map_names)
         merged_gdf_list.append(county_merged_gdf)
         county_gdf_list.append(county_gdf)
 

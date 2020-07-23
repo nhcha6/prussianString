@@ -1118,7 +1118,7 @@ def update_census(df_counties):
 
         census_update_county = pd.concat([within_data, missing_data], ignore_index=True)
         headers = ['province', 'province_id', 'district', 'class', 'type_id', 'loc_id', 'orig_name', 'pop_male', 'pop_female', 'pop_tot', 'protestant', 'catholic',
-                        'other_christ', 'jew', 'other_relig', 'age_under_ten', 'literate', 'school_noinfo', 'illiterate', 'province', 'alt_class', 'geo_names', 'lat', 'lng', 'amalg_flag']
+                        'other_christ', 'jew', 'other_relig', 'age_under_ten', 'literate', 'school_noinfo', 'illiterate', 'province', 'alt_class', 'geo_names', 'lat', 'lng', 'amalg_flag', 'Kr']
         census_update_county = census_update_county[headers]
         if flag:
             census_update = census_update_county
