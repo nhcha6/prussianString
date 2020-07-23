@@ -127,7 +127,7 @@ def create_histograms():
     plt.title('Mapping Rate')
 
     for header in DATA_HEADERS:
-        if header in ['type', 'locname', 'pop_male', 'pop_female']:
+        if header in ['type', 'locname', 'pop_male', 'pop_female', 'province_id']:
             continue
 
         t_stat_header = header + '_t_value'

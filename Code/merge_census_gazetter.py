@@ -850,10 +850,10 @@ def lev_dist_calc(df_county_cens, df_county_gaz, df_merged, county, df_join):
     diff = id_gazetter - id_merge
     df_remainder = df_county_gaz[df_county_gaz['id'].isin(diff)]
 
-    if not os.path.exists(os.path.join(WORKING_DIRECTORY, 'Output/', county)):
-        os.makedirs(os.path.join(WORKING_DIRECTORY, 'Output/', county))
+    if not os.path.exists(os.path.join(WORKING_DIRECTORY, 'OutputCounty/', county)):
+        os.makedirs(os.path.join(WORKING_DIRECTORY, 'OutputCounty/', county))
 
-    df_remainder.to_excel(os.path.join(WORKING_DIRECTORY, 'Output/', county, 'Gazetter_Remainder_' + county + '.xlsx'),
+    df_remainder.to_excel(os.path.join(WORKING_DIRECTORY, 'OutputCounty/', county, 'Gazetter_Remainder_' + county + '.xlsx'),
                           index=False)
 
     # extract unmatched names from census data:
@@ -1040,14 +1040,14 @@ def write_merged_data(df_merged, df_lev_merged, county):
     df_merged.drop(columns=["_merge"], inplace=True)
     df_merged.sort_values(by="loc_id", inplace=True)
     df_merged.drop(columns=["lev_match"], inplace=True)
-    df_merged.to_excel(os.path.join(WORKING_DIRECTORY, 'Output/', county, 'Merged_Data_' + county + '.xlsx'),
+    df_merged.to_excel(os.path.join(WORKING_DIRECTORY, 'OutputCounty/', county, 'Merged_Data_' + county + '.xlsx'),
                        index=False)
     # prepare for levenshtein matches write to file
     df_lev_merged.drop(columns=["_merge"], inplace=True)
     df_lev_merged.drop(columns=["lev_match"], inplace=True)
     df_lev_merged.sort_values(by="loc_id", inplace=True)
     df_lev_merged.to_excel(
-        os.path.join(WORKING_DIRECTORY, 'Output', county, 'Lev_Merged_Data_' + county + '.xlsx'),
+        os.path.join(WORKING_DIRECTORY, 'OutputCounty', county, 'Lev_Merged_Data_' + county + '.xlsx'),
         index=False)
 
     """ ------------------------------------ CALCULATE QUALITY STATISTICS ----------------------------------------"""
@@ -1072,7 +1072,7 @@ def qual_stat(exact_match_perc, df_merge_nodups, county, levenshtein_matches):
         f'''\n{round5_perc:.2f}% of locations were matched by simplifying the name from both the census and meyers gazetter''')
 
     # import csv to data frame, edit it and output new data frame to csv
-    df_merge_details = pd.read_excel(os.path.join(WORKING_DIRECTORY, 'Output/', 'MergeDetails.xlsx'))
+    df_merge_details = pd.read_excel(os.path.join(WORKING_DIRECTORY, 'OutputSummary/', 'MergeDetails.xlsx'))
 
     # if county has never been run, add new entry
     if df_merge_details[df_merge_details['county'] == county].empty:
@@ -1093,7 +1093,56 @@ def qual_stat(exact_match_perc, df_merge_nodups, county, levenshtein_matches):
         lev_typo += match[0] + " - " + match[1] + " | "
     df_merge_details.loc[df_merge_details['county'] == county, 'lev_typo'] = lev_typo
 
-    df_merge_details.to_excel(os.path.join(WORKING_DIRECTORY, 'Output/', 'MergeDetails.xlsx'), index=False)
+    df_merge_details.to_excel(os.path.join(WORKING_DIRECTORY, 'OutputSummary/', 'MergeDetails.xlsx'), index=False)
+
+
+"""----------------------------------- CREATE FINAL PRUSSIAN CENSUS FILE  --------------------------------------"""
+def update_census(df_counties):
+    # create PrussianCensusMerged file
+    flag = True
+    for county in df_counties['orig_name']:
+        print(county)
+        if county not in ['trier stadtkreis', 'frankfurt am main', 'liegnitz stadtkreis','Communion-Bergamts-Bezirk Goslar']:
+            continue
+        county_merged_df = pd.read_excel(os.path.join(WORKING_DIRECTORY, 'OutputCounty/', county, 'Merged_Data_' + county + '.xlsx'))
+
+        # amalagamation code for certain cities:
+        county_merged_df['amalg_flag']=False
+        if county in ['trier stadtkreis', 'frankfurt am main', 'liegnitz stadtkreis','Communion-Bergamts-Bezirk Goslar']:
+            county_merged_df = amalgamate_unmatched(county_merged_df)
+
+        within_data = county_merged_df[county_merged_df['geometry'].notnull() | (county_merged_df['geo_names']) | (county_merged_df['amalg_flag'])]
+        within_data = within_data.drop_duplicates(subset=['loc_id'], keep='first')
+        missing = ~county_merged_df.loc_id.isin(within_data.loc_id)
+        missing_data = county_merged_df[missing]
+        missing_data = missing_data.drop_duplicates(subset=['loc_id'], keep='first')
+        missing_data['lat'] = 0
+        missing_data['lng'] = 0
+
+        census_update_county = pd.concat([within_data, missing_data], ignore_index=True)
+        headers = ['province', 'province_id', 'district', 'class', 'type_id', 'loc_id', 'orig_name', 'pop_male', 'pop_female', 'pop_tot', 'protestant', 'catholic',
+                        'other_christ', 'jew', 'other_relig', 'age_under_ten', 'literate', 'school_noinfo', 'illiterate', 'province', 'alt_class', 'geo_names', 'lat', 'lng', 'amalg_flag']
+        census_update_county = census_update_county[headers]
+        if flag:
+            census_update = census_update_county
+            flag = False
+        else:
+            census_update = pd.concat([census_update, census_update_county], ignore_index=True)
+
+    census_update.to_excel(os.path.join(WORKING_DIRECTORY, 'OutputSummary/PrussianCensusUpdated.xlsx'),index=False)
+
+def amalgamate_unmatched(df_merged):
+    i = 0
+    if df_merged.iloc[i,148]==0:
+        i = 1
+    lat = df_merged.iloc[i, 148]
+    lat = np.random.normal(lat, 0.02)
+    lng = df_merged.iloc[i,149]
+    lng = np.random.normal(lng, 0.02)
+    df_merged.loc[df_merged['geometry'].isnull()&(df_merged['geo_names']==False), 'lat'] = lat
+    df_merged.loc[df_merged['geometry'].isnull()&(df_merged['geo_names']==False), 'lng'] = lng
+    df_merged.loc[df_merged['geometry'].isnull() & (df_merged['geo_names'] == False), 'amalg_flag'] = True
+    return df_merged
 
 """----------------------------------- FUNCTION INITIAITES ENTIRE CODE  --------------------------------------"""
 
@@ -1135,19 +1184,15 @@ def run_full_merge():
                               'admin3 code', 'admin4 code', 'population', 'elevation', 'dem', 'timezone',
                               'modification date']
 
-    # import merge stats to extract poor perfomring counties:
-    # df_stats = pd.read_excel(os.path.join(WORKING_DIRECTORY, 'Output/MergeDetails.xlsx'))
-    # df_stats = df_stats[df_stats['loc_perc']<80]
-
     # build up list of possible county names to be searched against gazetter.
     cont_flag = True
     count = 0
     for county in df_counties['orig_name']:
         count+=1
         print(count)
-        # if county not in ['trier stadtkreis', 'frankfurt am main', 'liegnitz stadtkreis']:
-        #     cont_flag = False
-        #     continue
+        if county not in ['fraustadt']:
+            cont_flag = False
+            continue
         # if cont_flag:
         #     continue
         current_county = df_counties.loc[df_counties['orig_name'] == county]
@@ -1193,6 +1238,22 @@ def run_full_merge():
 
         # calculate quality stats
         qual_stat(exact_match_perc, df_merged_nodups, county, levenshtein_matches)
+
+    # update the census
+    update_census(df_counties)
+
+# # load saved data frame containing census file
+# df_census = pd.read_pickle(WORKING_DIRECTORY+"census_df_pickle")
+#
+# # account for two different rotenburgs:
+# df_census.loc[(df_census['county']=='rotenburg')&(df_census['regbez']=='kassel'),'county'] = 'rotenburg kassel'
+# df_census.loc[(df_census['county']=='rotenburg')&(df_census['regbez']=='stade'),'county'] = 'rotenburg stade'
+#
+# # extract county name data frame from census
+# df_counties = extract_county_names(df_census)
+
+# update_census(df_counties)
+
 
 # run merge
 run_full_merge()
