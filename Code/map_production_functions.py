@@ -12,6 +12,8 @@ import os
 # set working directory path as location of data
 WORKING_DIRECTORY = '/Users/nicolaschapman/Documents/PrussianStringMatching/Data/'
 
+pd.set_option("display.max_rows", None, "display.max_columns", None)
+
 def merge_STATA(master, using, how='outer', on=None, left_on=None, right_on=None, indicator=True,
                 suffixes=('_master','_using'), drop=None, keep=None, drop_merge=False):
     """
@@ -428,11 +430,20 @@ def plot_county(county, county_merged_df, plot_headers, prussia_map, map_names):
     loc_no = county_merged_gdf.shape[0]
     print(f'''There are {loc_no} locations within the county after duplicates are dropped''')
 
+    data_headers = ['locname','type','pop_male', 'pop_female', 'pop_tot','protestant','catholic','other_christ', 'jew', 'other_relig', 'age_under_ten', 'literate', 'school_noinfo', 'illiterate', 'Kr']
+
     # merge data into a single entry for these counties where voronoi does not work
     if county in ['altona','magdeburg stadtkreis']:
+        print(county_merged_gdf)
+        # loop through headers to sum
+        for data in data_headers:
+            if data in ['type', 'locname', 'Kr']:
+                continue
+            county_merged_df[data] = county_merged_df[data].sum(skipna=True)
+        print(county_merged_df[county_merged_df['loc_id']==1])
         county_merged_gdf = county_merged_gdf[county_merged_gdf['loc_id']==1]
 
-    data_headers = ['locname','type','pop_male', 'pop_female', 'pop_tot','protestant','catholic','other_christ', 'jew', 'other_relig', 'age_under_ten', 'literate', 'school_noinfo', 'illiterate', 'Kr']
+
     # convert all data to proportion of population
     for data in data_headers:
         if data in ['pop_tot', 'type', 'locname', 'Kr']:
@@ -505,8 +516,7 @@ def run_maps():
         mapping_summary.sort_values(by=['county_id'])
         counties=[]
         for id in COUNTIES:
-            counties.append(mapping_summary.iloc[id, 0])
-        print(counties)
+            counties.append(mapping_summary.iloc[id-1, 0])
     else:
         counties = COUNTIES
 
@@ -534,9 +544,9 @@ def run_maps():
         ax = gplt.polyplot(prussia_map, linewidth=0.8, zorder=2)
         concat_merged_gdf = concat_merged_gdf[concat_merged_gdf[header].notnull()]
         if BINS != None:
-            scheme = mc.HeadTailBreaks(concat_merged_gdf[header], BINS)
+            scheme = mc.UserDefined(concat_merged_gdf[header], BINS)
         else:
-            scheme = mc.Quantiles(concat_merged_gdf[header])
+            scheme = mc.HeadTailBreaks(concat_merged_gdf[header])
         for i in range(len(county_gdf_list)):
             if merged_gdf_list[i].shape[0]>1:
 
