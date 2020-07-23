@@ -399,7 +399,7 @@ def amalgamate_unmatched(df_merged):
     df_merged.loc[df_merged['geometry'].isnull()&(df_merged['geo_names']==False), 'lng'] = lng
     return df_merged
 
-def plot_county(county, county_merged_df, plot_headers, prussia_map, showFlag, map_names):
+def plot_county(county, county_merged_df, plot_headers, prussia_map, map_names):
     # set seed so that random numbers generate identically each time
     np.random.seed(1)
 
@@ -443,7 +443,7 @@ def plot_county(county, county_merged_df, plot_headers, prussia_map, showFlag, m
     county_merged_gdf['child_per_woman'] = county_merged_gdf['age_under_ten'] / county_merged_gdf['pop_female']
 
     # plot individual voronoi plots
-    if showFlag and county_merged_gdf.shape[0] != 1:
+    if INDIV_PLOTS and county_merged_gdf.shape[0] != 1:
         for header in plot_headers:
             # plot voronoi
             county_merged_plot_gdf = county_merged_gdf[county_merged_gdf[header].notnull()]
@@ -499,16 +499,16 @@ def run_maps():
     df_census_updated = pd.read_excel(os.path.join(WORKING_DIRECTORY, 'OutputSummary/', 'PrussianCensusUpdated.xlsx'))
 
     # case where all counties are wanted
-    if COUNTIES == 'all':
-        showFlag = False
+    if isinstance(COUNTIES[0], int):
         # read in merged data
-        merge_details = pd.read_excel(os.path.join(WORKING_DIRECTORY, 'OutputSummary/', 'MergeDetails.xlsx'))
-        counties = []
-        for county in merge_details['county']:
-            counties.append(county)
+        mapping_summary = pd.read_excel(os.path.join(WORKING_DIRECTORY, 'OutputSummary/', 'MappingSummary.xlsx'))
+        mapping_summary.sort_values(by=['county_id'])
+        counties=[]
+        for id in COUNTIES:
+            counties.append(mapping_summary.iloc[id, 0])
+        print(counties)
     else:
         counties = COUNTIES
-        showFlag = True
 
     county_gdf_list = []
     merged_gdf_list = []
@@ -517,7 +517,7 @@ def run_maps():
         census_no = df_census[df_census['county'] == county].shape[0]
         print(f'''\nThere are {census_no} entries in the census for {county}''')
 
-        county_gdf, county_merged_gdf = plot_county(county, df_county, PLOT_HEADERS, prussia_map, showFlag, map_names)
+        county_gdf, county_merged_gdf = plot_county(county, df_county, PLOT_HEADERS, prussia_map, map_names)
         merged_gdf_list.append(county_merged_gdf)
         county_gdf_list.append(county_gdf)
 
@@ -534,9 +534,9 @@ def run_maps():
         ax = gplt.polyplot(prussia_map, linewidth=0.8, zorder=2)
         concat_merged_gdf = concat_merged_gdf[concat_merged_gdf[header].notnull()]
         if BINS != None:
-            scheme = mc.UserDefined(concat_merged_gdf[header], BINS)
+            scheme = mc.HeadTailBreaks(concat_merged_gdf[header], BINS)
         else:
-            scheme = mc.HeadTailBreaks(concat_merged_gdf[header])
+            scheme = mc.Quantiles(concat_merged_gdf[header])
         for i in range(len(county_gdf_list)):
             if merged_gdf_list[i].shape[0]>1:
 
