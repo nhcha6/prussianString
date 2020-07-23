@@ -401,7 +401,7 @@ def amalgamate_unmatched(df_merged):
     df_merged.loc[df_merged['geometry'].isnull()&(df_merged['geo_names']==False), 'lng'] = lng
     return df_merged
 
-def plot_county(county, county_merged_df, plot_headers, prussia_map, map_names):
+def plot_county(county, county_merged_df, plot_headers, prussia_map, map_names, stadt_gdf, stadt_merged_gdf):
     # set seed so that random numbers generate identically each time
     np.random.seed(1)
 
@@ -432,17 +432,14 @@ def plot_county(county, county_merged_df, plot_headers, prussia_map, map_names):
 
     data_headers = ['locname','type','pop_male', 'pop_female', 'pop_tot','protestant','catholic','other_christ', 'jew', 'other_relig', 'age_under_ten', 'literate', 'school_noinfo', 'illiterate', 'Kr']
 
-    # merge data into a single entry for these counties where voronoi does not work
+    # merge data into a single entry for these small counties where voronoi does not work
     if county in ['altona','magdeburg stadtkreis']:
-        print(county_merged_gdf)
         # loop through headers to sum
         for data in data_headers:
             if data in ['type', 'locname', 'Kr']:
                 continue
             county_merged_df[data] = county_merged_df[data].sum(skipna=True)
-        print(county_merged_df[county_merged_df['loc_id']==1])
         county_merged_gdf = county_merged_gdf[county_merged_gdf['loc_id']==1]
-
 
     # convert all data to proportion of population
     for data in data_headers:
@@ -462,7 +459,14 @@ def plot_county(county, county_merged_df, plot_headers, prussia_map, map_names):
                 scheme = mc.UserDefined(county_merged_plot_gdf[header], BINS)
             else:
                 scheme = mc.HeadTailBreaks(county_merged_plot_gdf[header])
+
+            # plot voronoi
             ax = gplt.voronoi(county_merged_gdf, hue=header, clip=county_gdf.simplify(0.001), zorder=1, linewidth=0.5, scheme=scheme, legend=True)
+
+            # plot stadtkreis if landkreis was selected
+            if 'landkreis' in county:
+                stadt_gdf[header] = stadt_merged_gdf[header].iloc[0]
+                gplt.choropleth(stadt_gdf, linewidth=0.8, zorder=1, ax=ax, hue = header, scheme=scheme, legend=True)
 
             # add points over the top if county is selected
             if KREIS != None:
@@ -526,8 +530,18 @@ def run_maps():
         df_county = df_census_updated[df_census_updated['district']==county]
         census_no = df_census[df_census['county'] == county].shape[0]
         print(f'''\nThere are {census_no} entries in the census for {county}''')
+        # add stadt version of county if landkreis in name
+        stadt_merged_gdf = None
+        stadt_gdf = None
+        if 'landkreis' in county:
+            stadt_county = county.replace('landkreis', 'stadtkreis')
+            df_county_stadt = df_census_updated[df_census_updated['district']==stadt_county]
+            # run stadt so it can be plotted later
+            stadt_gdf, stadt_merged_gdf = plot_county(stadt_county, df_county_stadt, PLOT_HEADERS, prussia_map, map_names, None, None)
+            county_gdf_list.append(stadt_gdf)
+            merged_gdf_list.append(stadt_merged_gdf)
 
-        county_gdf, county_merged_gdf = plot_county(county, df_county, PLOT_HEADERS, prussia_map, map_names)
+        county_gdf, county_merged_gdf = plot_county(county, df_county, PLOT_HEADERS, prussia_map, map_names, stadt_gdf, stadt_merged_gdf)
         merged_gdf_list.append(county_merged_gdf)
         county_gdf_list.append(county_gdf)
 
@@ -539,7 +553,6 @@ def run_maps():
         else:
             concat_merged_gdf = pd.concat([concat_merged_gdf, merged_gdf], ignore_index=True)
 
-
     for header in PLOT_HEADERS:
         ax = gplt.polyplot(prussia_map, linewidth=0.8, zorder=2)
         concat_merged_gdf = concat_merged_gdf[concat_merged_gdf[header].notnull()]
@@ -549,11 +562,11 @@ def run_maps():
             scheme = mc.HeadTailBreaks(concat_merged_gdf[header])
         for i in range(len(county_gdf_list)):
             if merged_gdf_list[i].shape[0]>1:
-
                 gplt.voronoi(merged_gdf_list[i], hue=header, clip=county_gdf_list[i].simplify(0.001), legend=True, linewidth=0.2, zorder=1, ax=ax, scheme=scheme)
             else:
                 merged_gdf_list[i]['geometry'] = county_gdf_list[i]['geometry'].iloc[0]
                 gplt.choropleth(merged_gdf_list[i], linewidth=0.2, zorder=1, ax=ax, hue = header, scheme=scheme, legend=True)
+
         gplt.polyplot(prussia_map, linewidth=0.8, ax=ax, zorder=2)
         ax.set_title('All Counties - ' + header)
     plt.show()

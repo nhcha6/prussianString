@@ -1,5 +1,5 @@
 
-COUNTIES =  ['altona','magdeburg stadtkreis']
+COUNTIES =  ['posen landkreis','breslau landkreis']
 #COUNTIES =  ['trier stadtkreis', 'frankfurt am main', 'liegnitz stadtkreis', 'Communion-Bergamts-Bezirk Goslar', 'altona', 'magdeburg stadtkreis']
 #COUNTIES = range(1,3)
 
