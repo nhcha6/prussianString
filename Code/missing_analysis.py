@@ -117,6 +117,27 @@ def run():
     df_missing.to_excel(os.path.join(WORKING_DIRECTORY, 'Output','MissingAnalysis.xlsx'),index=False)
     df_summary.to_excel(os.path.join(WORKING_DIRECTORY, 'Output','MappingSummary.xlsx'),index=False)
 
-run()
+def create_histograms():
+    df_missing = pd.read_excel(os.path.join(WORKING_DIRECTORY, 'Output', 'MissingAnalysis.xlsx'), index=False)
+    df_summary = pd.read_excel(os.path.join(WORKING_DIRECTORY, 'Output', 'MappingSummary.xlsx'), index=False)
+
+    plt.figure()
+    df_summary['plot_%'].plot.hist(grid=True, bins=20, rwidth=0.9,color='#607c8e')
+    plt.title('Mapping Rate')
+
+    for header in DATA_HEADERS:
+        if header in ['type', 'locname', 'pop_male', 'pop_female']:
+            continue
+
+        t_stat_header = header + '_t_value'
+
+        plt.figure()
+        df_missing[t_stat_header].plot.hist(grid=True, bins=20, rwidth=0.9,color='#607c8e')
+        plt.title(t_stat_header)
+
+    plt.show()
 
 
+#run()
+
+create_histograms()
