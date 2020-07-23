@@ -446,7 +446,12 @@ def plot_county(county, county_merged_df, plot_headers, prussia_map, showFlag, m
     if showFlag and county_merged_gdf.shape[0] != 1:
         for header in plot_headers:
             # plot voronoi
-            ax = gplt.voronoi(county_merged_gdf, hue=header, clip=county_gdf.simplify(0.001), legend = True, zorder=1, linewidth=0.5)
+            county_merged_plot_gdf = county_merged_gdf[county_merged_gdf[header].notnull()]
+            if BINS!=None:
+                scheme = mc.UserDefined(county_merged_plot_gdf[header], BINS)
+            else:
+                scheme = mc.HeadTailBreaks(county_merged_plot_gdf[header])
+            ax = gplt.voronoi(county_merged_gdf, hue=header, clip=county_gdf.simplify(0.001), zorder=1, linewidth=0.5, scheme=scheme, legend=True)
 
             # add points over the top if county is selected
             if KREIS != None:
@@ -460,7 +465,7 @@ def plot_county(county, county_merged_df, plot_headers, prussia_map, showFlag, m
                 if len(legend)!=0:
                     # configure legends and plot
                     scheme = mc.FisherJenks(county_merged_gdf.loc[county_merged_gdf['kreis_hue'].notnull(), 'kreis_hue'], k=len(legend))
-                    gplt.pointplot(county_merged_gdf[county_merged_gdf['kreis_hue'].notnull()], ax=ax, zorder=2, hue='kreis_hue', cmap = 'Reds', scheme=scheme, legend=True, legend_labels=legend)
+                    gplt.pointplot(county_merged_gdf[county_merged_gdf['kreis_hue'].notnull()], ax=ax, zorder=2, hue='kreis_hue', cmap = 'Reds', scheme=scheme)
                     county_merged_gdf.drop(columns=["kreis_hue"], inplace=True)
 
             # plot county as border to reframe the image.
@@ -528,7 +533,10 @@ def run_maps():
     for header in PLOT_HEADERS:
         ax = gplt.polyplot(prussia_map, linewidth=0.8, zorder=2)
         concat_merged_gdf = concat_merged_gdf[concat_merged_gdf[header].notnull()]
-        scheme = mc.HeadTailBreaks(concat_merged_gdf[header])
+        if BINS != None:
+            scheme = mc.UserDefined(concat_merged_gdf[header], BINS)
+        else:
+            scheme = mc.HeadTailBreaks(concat_merged_gdf[header])
         for i in range(len(county_gdf_list)):
             if merged_gdf_list[i].shape[0]>1:
 
