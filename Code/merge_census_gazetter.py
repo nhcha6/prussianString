@@ -22,7 +22,9 @@ import geoplot as gplt
 import matplotlib.pyplot as plt
 
 # set working directory path as location of data
-WORKING_DIRECTORY = '/Users/nicolaschapman/Documents/NicMergeData/'
+# WORKING_DIRECTORY = '/Users/nicolaschapman/Documents/NicMergeData/'
+#WORKING_DIRECTORY = '/Users/sbec0005/Dropbox/WittenbergerOrdiniertenbuch/PrussianCensusCode/NicMergeData/'
+WORKING_DIRECTORY = 'NicMergeData/'
 
 pd.set_option("display.max_rows", None, "display.max_columns", None)
 
@@ -474,7 +476,7 @@ def gazetter_data_map(df_gazetter, map_names, prussia_map, county):
         county_gdf = multiple_maps(map_name, county_gdf, county)
 
         # special case for rotenberg which has two distinct regions
-        county_poly_buffered = county_gdf.buffer(0.05)[0]
+        county_poly_buffered = county_gdf.buffer(0.05).iloc[0]
         within = gdf_gazetter[gdf_gazetter.within(county_poly_buffered)]
         index_in_county = set()
 
@@ -853,8 +855,7 @@ def lev_dist_calc(df_county_cens, df_county_gaz, df_merged, county, df_join):
     if not os.path.exists(os.path.join(WORKING_DIRECTORY, 'OutputCounty/', county)):
         os.makedirs(os.path.join(WORKING_DIRECTORY, 'OutputCounty/', county))
 
-    df_remainder.to_excel(os.path.join(WORKING_DIRECTORY, 'OutputCounty/', county, 'Gazetter_Remainder_' + county + '.xlsx'),
-                          index=False)
+    df_remainder.to_excel(os.path.join(WORKING_DIRECTORY, 'OutputCounty/', county, 'Gazetter_Remainder_' + county + '.xlsx'),index=False)
 
     # extract unmatched names from census data:
     unmatched_census_df = df_join[df_join['_merge'] == 'left_only']
@@ -1186,8 +1187,8 @@ def run_full_merge():
     for county in df_counties['orig_name']:
         count+=1
         print(count)
-        # if county not in ['fraustadt']:
-        #     continue
+        if county not in ['fraustadt', 'memel', 'sorau']:
+            continue
         current_county = df_counties.loc[df_counties['orig_name'] == county]
         current_county=current_county.reset_index()
         current_county.drop(columns=["index"], inplace=True)

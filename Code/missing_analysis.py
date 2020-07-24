@@ -15,7 +15,9 @@ import scipy
 
 
 # set working directory path as location of data
-WORKING_DIRECTORY = '/Users/nicolaschapman/Documents/NicMergeData/'
+# WORKING_DIRECTORY = '/Users/nicolaschapman/Documents/NicMergeData/'
+# WORKING_DIRECTORY = '/Users/sbec0005/Dropbox/WittenbergerOrdiniertenbuch/PrussianCensusCode/NicMergeData/'
+WORKING_DIRECTORY = 'NicMergeData/'
 
 pd.set_option("display.max_rows", None, "display.max_columns", None)
 
@@ -112,8 +114,14 @@ def create_histograms():
     df_missing = pd.read_excel(os.path.join(WORKING_DIRECTORY, 'OutputSummary', 'MissingAnalysis.xlsx'), index=False)
     df_summary = pd.read_excel(os.path.join(WORKING_DIRECTORY, 'OutputSummary', 'MappingSummary.xlsx'), index=False)
 
+    # calculate the sum of all missing data and sum of total data
+    total_entries = df_summary['num_total'].sum(skipna=True)
+    total_within = df_summary['num_within'].sum(skipna=True)
+    within_perc = 100*total_within/total_entries
+
     plt.figure()
     df_summary['plot_%'].plot.hist(grid=True, bins=20, rwidth=0.9,color='#607c8e')
+    plt.axvline(within_perc, color='r', linewidth=1)
     plt.title('Mapping Rate')
 
     for header in HISTOGRAM_DATA:

@@ -10,7 +10,9 @@ import mapclassify as mc
 import os
 
 # set working directory path as location of data
-WORKING_DIRECTORY = '/Users/nicolaschapman/Documents/NicMergeData/'
+# WORKING_DIRECTORY = '/Users/nicolaschapman/Documents/NicMergeData/'
+# WORKING_DIRECTORY = '/Users/sbec0005/Dropbox/WittenbergerOrdiniertenbuch/PrussianCensusCode/NicMergeData/'
+WORKING_DIRECTORY = 'NicMergeData/'
 
 pd.set_option("display.max_rows", None, "display.max_columns", None)
 
@@ -415,7 +417,8 @@ def plot_county(county, county_merged_df, plot_headers, prussia_map, map_names, 
     # if there are multiple regions in the map data with the same name, extract the correct one.
     county_gdf = multiple_maps(map_name, county_gdf, county)
 
-    county_poly_buffered = county_gdf.buffer(0.05)[0]
+
+    county_poly_buffered = county_gdf.buffer(0.05).iloc[0]
 
     # add a little bit of noise to ensure that identical data points are split slightly
     county_merged_df['lat'] = np.random.normal(county_merged_df['lat'],0.01)
