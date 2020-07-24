@@ -3,10 +3,10 @@ from merge_census_gazetter import *
 from missing_analysis import *
 
 # run the mapping code
-run_maps()
+#run_maps()
 
 # run the full merge code
-#run_full_merge()
+run_full_merge()
 
 # run the statistical analysis of the missing data
 #create_missing_stats()

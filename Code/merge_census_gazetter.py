@@ -1118,7 +1118,7 @@ def update_census(df_counties):
 
         census_update_county = pd.concat([within_data, missing_data], ignore_index=True)
         headers = ['province', 'province_id', 'district', 'class', 'type_id', 'loc_id', 'orig_name', 'pop_male', 'pop_female', 'pop_tot', 'protestant', 'catholic',
-                        'other_christ', 'jew', 'other_relig', 'age_under_ten', 'literate', 'school_noinfo', 'illiterate', 'province', 'alt_class', 'geo_names', 'lat', 'lng', 'amalg_flag', 'Kr']
+                        'other_christ', 'jew', 'other_relig', 'age_under_ten', 'literate', 'school_noinfo', 'illiterate', 'province', 'alt_class', 'geo_names', 'lat', 'lng', 'amalg_flag', 'Kr', 'merge_round']
         census_update_county = census_update_county[headers]
         if flag:
             census_update = census_update_county
@@ -1186,8 +1186,8 @@ def run_full_merge():
     for county in df_counties['orig_name']:
         count+=1
         print(count)
-        if county not in ['fraustadt']:
-            continue
+        # if county not in ['fraustadt']:
+        #     continue
         current_county = df_counties.loc[df_counties['orig_name'] == county]
         current_county=current_county.reset_index()
         current_county.drop(columns=["index"], inplace=True)
