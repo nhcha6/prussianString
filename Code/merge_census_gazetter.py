@@ -1182,8 +1182,8 @@ def run_full_merge():
     for county in df_counties['orig_name']:
         count+=1
         print(count)
-        if 'pr' not in county:
-            continue
+        # if 'pr' not in county:
+        #     continue
         current_county = df_counties.loc[df_counties['orig_name'] == county]
         current_county=current_county.reset_index()
         current_county.drop(columns=["index"], inplace=True)
