@@ -8,6 +8,7 @@ from tabulate import tabulate
 from map_details import *
 import mapclassify as mc
 import os
+import hvplot.pandas
 
 # set working directory path as location of data
 # WORKING_DIRECTORY = '/Users/nicolaschapman/Documents/NicMergeData/'
@@ -459,6 +460,13 @@ def plot_county(county, county_merged_df, plot_headers, prussia_map, map_names, 
         county_merged_gdf.loc[county_merged_gdf[data] > 1, data] = 1
     # add child to mother ratio:
     county_merged_gdf['child_per_woman'] = county_merged_gdf['age_under_ten'] / county_merged_gdf['pop_female']
+
+    if REGION_DETAILS:
+        ax = gplt.voronoi(county_merged_gdf, clip=county_gdf.buffer(0).simplify(0.001))
+        gplt.pointplot(county_merged_gdf, ax=ax)
+        plt.show()
+        name_plot = county_merged_gdf.hvplot.points(hover_cols=['orig_name','pop_male', 'pop_female', 'pop_tot', 'protestant', 'catholic', 'other_christ', 'jew', 'other_relig', 'age_under_ten', 'literate', 'school_noinfo', 'illiterate', 'child_per_woman'])
+        hvplot.show(name_plot)
 
     # plot individual voronoi plots
     if INDIV_PLOTS and county_merged_gdf.shape[0] != 1:

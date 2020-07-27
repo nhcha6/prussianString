@@ -6,7 +6,7 @@ from itertools import chain
 #COUNTIES =  ['jerichow I']
 
 # range(x, y+1) will run county_id x to y
-#COUNTIES = range(125,140)
+#COUNTIES = range(1,2)
 
 # list(range(x, y+1)) + list(range(a, b+1)) will run from county_d x to y and then from a to b.
 COUNTIES = list(range(1,40)) + list(range(250,300))
@@ -30,6 +30,11 @@ KREIS = ['Fraustadt','Lissa']
 BINS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
 # set to None if want to use the default.
 #BINS = None
+
+# set to True to launch interactive map allowing allowing region details to be investigated.
+# if set to True, no other code will run and only the first county selected will be shown.
+# must close plot figure before browser window launches.
+REGION_DETAILS = False
 
 # Histogram Data Options: ['pop_tot', 'protestant', 'catholic', 'other_christ', 'jew', 'other_relig', 'age_under_ten', 'literate', 'school_noinfo', 'illiterate']
 HISTOGRAM_DATA = ['pop_tot', 'protestant']
