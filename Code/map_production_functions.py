@@ -85,6 +85,10 @@ def merge_STATA(master, using, how='outer', on=None, left_on=None, right_on=None
     return merge
 
 def extract_map_names(df_counties_census, prussia_map):
+    """
+    Function that matches county names in the gazetter to county names in the shape file via a sequence of string
+    cleaning and matching followed by manual linking of data.
+    """
     df_counties_census['simp_name'] = df_counties_census['simp_name'].str.replace(r'ö', 'o')
     df_counties_census['simp_name'] = df_counties_census['simp_name'].str.replace(r'ü', 'u')
 
@@ -96,7 +100,6 @@ def extract_map_names(df_counties_census, prussia_map):
             count += 1
             if county in ['stadt', 'gross', 'ost', 'west', 'stader', 'sankt']:
                 continue
-
             try:
                 for map_county in prussia_map["NAME"]:
                     if county.upper() in map_county:
@@ -149,10 +152,15 @@ def extract_map_names(df_counties_census, prussia_map):
     return county_map_name
 
 def extract_county_names(df_census):
+    """
+    Iterates through the census and extracts all the county names, before applying general string cleaning and manually
+    allocating alternative names to counties to improve gazetter filtering.
+    """
     # extract all counties:
     counties = []
     for county in df_census['county']:
         if county in counties:
+            # deal with two cases of rotenberg
             if county == 'rotenberg':
                 counties.append('rotenberg kassel')
                 counties.append('rotenberg stade')
@@ -287,6 +295,10 @@ def extract_county_names(df_census):
     return df_counties
 
 def multiple_maps(map_name, county_gdf, county):
+    """
+    For counties with mulitple mapped regions under the same name, we need to allocate the correct one manually.
+
+    """
     if map_name == 'KONIGSBERG':
         if county == 'koenigsberg':
             county_gdf = county_gdf[county_gdf.index == 1]
@@ -391,19 +403,13 @@ def multiple_maps(map_name, county_gdf, county):
             county_gdf = county_gdf[county_gdf.index == 0]
     return county_gdf
 
-def amalgamate_unmatched(df_merged):
-    i = 0
-    if df_merged.iloc[i,148]==0:
-        i = 1
-    lat = df_merged.iloc[i, 148]
-    lat = np.random.normal(lat, 0.02)
-    lng = df_merged.iloc[i,149]
-    lng = np.random.normal(lng, 0.02)
-    df_merged.loc[df_merged['geometry'].isnull()&(df_merged['geo_names']==False), 'lat'] = lat
-    df_merged.loc[df_merged['geometry'].isnull()&(df_merged['geo_names']==False), 'lng'] = lng
-    return df_merged
-
 def plot_county(county, county_merged_df, plot_headers, prussia_map, map_names, stadt_gdf, stadt_merged_gdf):
+    """
+    Generates the county data frame with geometry that is to be plotted. Then controls plotting of individual county
+    voronoi and associated point plots.
+
+    """
+
     # set seed so that random numbers generate identically each time
     np.random.seed(1)
 
@@ -416,7 +422,6 @@ def plot_county(county, county_merged_df, plot_headers, prussia_map, map_names, 
 
     # if there are multiple regions in the map data with the same name, extract the correct one.
     county_gdf = multiple_maps(map_name, county_gdf, county)
-
 
     county_poly_buffered = county_gdf.buffer(0.05).iloc[0]
 
@@ -466,12 +471,12 @@ def plot_county(county, county_merged_df, plot_headers, prussia_map, map_names, 
                 scheme = mc.HeadTailBreaks(county_merged_plot_gdf[header])
 
             # plot voronoi
-            ax = gplt.voronoi(county_merged_gdf, hue=header, clip=county_gdf.simplify(0.001), zorder=1, linewidth=0.5, scheme=scheme, legend=True)
+            ax = gplt.voronoi(county_merged_gdf, hue=header, clip=county_gdf.buffer(0).simplify(0.001), zorder=1, linewidth=0.5, scheme=scheme, legend=True)
 
             # plot stadtkreis if landkreis was selected
             if 'landkreis' in county:
                 stadt_gdf[header] = stadt_merged_gdf[header].iloc[0]
-                gplt.choropleth(stadt_gdf, linewidth=0.8, zorder=1, ax=ax, hue = header, scheme=scheme, legend=True)
+                gplt.choropleth(stadt_gdf, linewidth=0.8, zorder=2, ax=ax, hue = header, scheme=scheme, legend=True)
 
             # add points over the top if county is selected
             if KREIS != None:
@@ -567,7 +572,7 @@ def run_maps():
             scheme = mc.HeadTailBreaks(concat_merged_gdf[header])
         for i in range(len(county_gdf_list)):
             if merged_gdf_list[i].shape[0]>1:
-                gplt.voronoi(merged_gdf_list[i], hue=header, clip=county_gdf_list[i].simplify(0.001), legend=True, linewidth=0.2, zorder=1, ax=ax, scheme=scheme)
+                gplt.voronoi(merged_gdf_list[i], hue=header, clip=county_gdf_list[i].buffer(0).simplify(0.001), legend=True, linewidth=0.2, zorder=1, ax=ax, scheme=scheme)
             else:
                 merged_gdf_list[i]['geometry'] = county_gdf_list[i]['geometry'].iloc[0]
                 gplt.choropleth(merged_gdf_list[i], linewidth=0.2, zorder=1, ax=ax, hue = header, scheme=scheme, legend=True)
